@@ -191,6 +191,23 @@ unsigned long DetectionTrackerNode::convertColorImageMessageToMat(const sensor_m
 	return ipa_Utils::RET_OK;
 }
 
+/// Converts a depth color image message to cv::Mat format.
+unsigned long DetectionTrackerNode::convertDepthColorImageMessageToMat(const sensor_msgs::Image::ConstPtr& image_msg, cv_bridge::CvImageConstPtr& image_ptr, cv::Mat& image)
+{
+	try
+	{
+		image_ptr = cv_bridge::toCvShare(image_msg, sensor_msgs::image_encodings::BGR8);
+	}
+	catch (cv_bridge::Exception& e)
+	{
+		ROS_ERROR("PeopleDetection: cv_bridge exception: %s", e.what());
+		return ipa_Utils::RET_FAILED;
+	}
+	image = image_ptr->image;
+
+	return ipa_Utils::RET_OK;
+}
+
 
 /// Copies the data from src to dest.
 /// @param src The new data which shall be copied into dest
