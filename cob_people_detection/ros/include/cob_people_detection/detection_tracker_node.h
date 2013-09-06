@@ -165,6 +165,10 @@ public:
 	/// @return Always returns the Euclidian distance of both faces.
 	double computeFacePositionDistance(const cob_people_detection_msgs::Detection& previous_detection, const cob_people_detection_msgs::Detection& current_detection);
 
+	//new check rmb-ss
+	double computeFacePositionImageSimilarity(const cob_people_detection_msgs::Detection& previous_detection, const cob_people_detection_msgs::Detection& current_detection);
+	//end new check rmb-ss
+
 	/// Removes multiple instances of a label by renaming the detections with lower score to Unknown.
 	/// @return Return code.
 	unsigned long removeMultipleInstancesOfLabel();

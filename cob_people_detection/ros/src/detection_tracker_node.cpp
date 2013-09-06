@@ -305,6 +305,18 @@ double DetectionTrackerNode::computeFacePositionDistance(const cob_people_detect
 	return sqrt(dx*dx+dy*dy+dz*dz);
 }
 
+//new check rmb-ss
+double DetectionTrackerNode::computeFacePositionImageSimilarity(const cob_people_detection_msgs::Detection& previous_detection, const cob_people_detection_msgs::Detection& current_detection)
+{
+	std::cout << "Yay, stuff was called. Hello World of CPP" << "\n";
+
+
+
+	double cppvarhaha = 0;
+	return cppvarhaha;
+}
+//end new check rmb-ss
+
 
 /// Removes multiple instances of a label by renaming the detections with lower score to Unknown.
 /// @return Return code.
@@ -395,20 +407,20 @@ void DetectionTrackerNode::inputCallback(const cob_people_detection_msgs::Detect
 
 	// delete old face positions in list, i.e. those that were not updated for a long time
 	ros::Duration timeSpan(face_redetection_time_);
-  // do not delete  when bag file is played back
-  if(!rosbag_mode_)
-  {
-	for (int i=(int)face_position_accumulator_.size()-1; i>=0; i--)
+	// do not delete  when bag file is played back
+	if(!rosbag_mode_)
 	{
-		if ((ros::Time::now()-face_position_accumulator_[i].header.stamp) > timeSpan)
+		for (int i=(int)face_position_accumulator_.size()-1; i>=0; i--)
 		{
-			face_position_accumulator_.erase(face_position_accumulator_.begin()+i);
-			face_identification_votes_.erase(face_identification_votes_.begin()+i);
+			if ((ros::Time::now()-face_position_accumulator_[i].header.stamp) > timeSpan)
+			{
+				face_position_accumulator_.erase(face_position_accumulator_.begin()+i);
+				face_identification_votes_.erase(face_identification_votes_.begin()+i);
+			}
 		}
+		if (debug_)
+			std::cout << "Old face positions deleted.\n";
 	}
-	if (debug_)
-		std::cout << "Old face positions deleted.\n";
-  }
 
 	// verify face detections with people segmentation if enabled -> only accept detected faces if a person is segmented at that position
 	std::vector<int> face_detection_indices; // index set for face_position_msg_in: contains those indices of detected faces which are supported by a person segmentation at the same location
@@ -520,7 +532,7 @@ void DetectionTrackerNode::inputCallback(const cob_people_detection_msgs::Detect
 	// Option 2: global optimum with Hungarian method
 	else
 	{
-		// create the costs matrix (which consist of Eulidean distance in cm and a punishment for dissimilar labels)
+		// create the costs matrix (which consist of Euclidean distance in cm and a punishment for dissimilar labels)
 		std::vector< std::vector<int> > costs_matrix(face_position_accumulator_.size(), std::vector<int>(face_detection_indices.size(), 0));
 		if (debug_)
 			std::cout << "Costs matrix.\n";
@@ -528,8 +540,10 @@ void DetectionTrackerNode::inputCallback(const cob_people_detection_msgs::Detect
 		{
 			for (unsigned int i=0; i<face_detection_indices.size(); i++)
 			{
+				//rmb-ss, added + computeFacePositionImageSimilarity
 				costs_matrix[previous_det][i] = 100*computeFacePositionDistance(face_position_accumulator_[previous_det], face_position_msg_in->detections[face_detection_indices[i]])
-												+ 100*tracking_range_m_ * (face_position_msg_in->detections[face_detection_indices[i]].label.compare(face_position_accumulator_[previous_det].label)==0 ? 0 : 1);
+												+ 100*tracking_range_m_ * (face_position_msg_in->detections[face_detection_indices[i]].label.compare(face_position_accumulator_[previous_det].label)==0 ? 0 : 1)
+												+ computeFacePositionImageSimilarity(face_position_accumulator_[previous_det], face_position_msg_in->detections[face_detection_indices[i]]);
 				if (debug_)
 					std::cout << costs_matrix[previous_det][i] << "\t";
 			}
