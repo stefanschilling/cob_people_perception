@@ -116,6 +116,9 @@ protected:
 
 	message_filters::Synchronizer<message_filters::sync_policies::ApproximateTime<cob_people_detection_msgs::DetectionArray, sensor_msgs::Image> >* sync_input_2_;
 	message_filters::Subscriber<cob_people_detection_msgs::DetectionArray> face_position_subscriber_; ///< receives the face messages from the face detector
+	//rmb-ss
+	//message_filters::Subscriber<cob_people_detection_msgs::ColorDepthImage> face_image_subscriber_; ///< receives face image messages
+	//end rmb-ss
 	ros::Publisher face_position_publisher_; ///< publisher for the positions of the detected faces
 
 	ros::NodeHandle node_handle_; ///< ROS node handle
@@ -167,7 +170,7 @@ public:
 
 	//new stuff rmb-ss
 	double computeFacePositionImageSimilarity(const cob_people_detection_msgs::Detection& previous_detection, const cob_people_detection_msgs::Detection& current_detection);
-	unsigned long convertDepthColorImageMessageToMat(const sensor_msgs::Image::ConstPtr& image_msg, cv_bridge::CvImageConstPtr& image_ptr, cv::Mat& image)
+	//unsigned long convertDepthColorImageMessageToMat(const cob_people_detection_msgs::ColorDepthImage::ConstPtr& image_msg, cv_bridge::CvImageConstPtr& image_ptr, cv::Mat& image);
 	//end new stuff rmb-ss
 
 	/// Removes multiple instances of a label by renaming the detections with lower score to Unknown.
@@ -177,8 +180,8 @@ public:
 	unsigned long prepareFacePositionMessage(cob_people_detection_msgs::DetectionArray& face_position_msg_out, ros::Time image_recording_time);
 
 	/// checks the detected faces from the input topic against the people segmentation and outputs faces if both are positive
+	// void inputCallback(const cob_people_detection_msgs::DetectionArray::ConstPtr& face_position_msg_in, const sensor_msgs::Image::ConstPtr& people_segmentation_image_msg, const cob_people_detection_msgs::ColorDepthImage::_color_image_type& face_image_msg_in);
 	void inputCallback(const cob_people_detection_msgs::DetectionArray::ConstPtr& face_position_msg_in, const sensor_msgs::Image::ConstPtr& people_segmentation_image_msg);
-
 };
 
 };
