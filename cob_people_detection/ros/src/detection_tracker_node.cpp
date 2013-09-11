@@ -75,6 +75,10 @@
 //#include <sensor_msgs/PointCloud2.h>
 #include <cob_people_detection_msgs/DetectionArray.h>
 
+// rmb-ss
+#include <cob_people_detection_msgs/ColorDepthImageArray.h>
+// end rmb-ss
+
 // services
 //#include <cob_people_detection/DetectPeople.h>
 
@@ -149,7 +153,7 @@ DetectionTrackerNode::DetectionTrackerNode(ros::NodeHandle nh)
 	people_segmentation_image_sub_.subscribe(*it_, "people_segmentation_image", 1);
 	face_position_subscriber_.subscribe(node_handle_, "face_position_array_in", 1);
 
-//	face_image_subscriber_.subscribe(node_handle_, "", 1);
+	face_image_subscriber_.subscribe(node_handle_, "face_positions", 1000);
 
 	// input synchronization
 	sensor_msgs::Image::ConstPtr nullPtr;
@@ -161,7 +165,7 @@ DetectionTrackerNode::DetectionTrackerNode(ros::NodeHandle nh)
 	}
 	else
 	{
-		face_position_subscriber_.registerCallback(boost::bind(&DetectionTrackerNode::inputCallback, this, _1));
+		face_position_subscriber_.registerCallback(boost::bind(&DetectionTrackerNode::inputCallback, this, _1, nullPtr));
 	}
 //	else
 //	{
@@ -339,7 +343,7 @@ double DetectionTrackerNode::computeFacePositionDistance(const cob_people_detect
 double DetectionTrackerNode::computeFacePositionImageSimilarity(const cob_people_detection_msgs::Detection& previous_detection, const cob_people_detection_msgs::Detection& current_detection)
 {
 	std::cout << "Yay, stuff was called. Hello World of CPP" << "\n";
-	std::cout << previous_detection << "\n";
+	//std::cout << previous_detection << "\n";
 
 
 
@@ -435,9 +439,9 @@ void DetectionTrackerNode::inputCallback(const cob_people_detection_msgs::Detect
 		convertColorImageMessageToMat(people_segmentation_image_msg, people_segmentation_image_ptr, people_segmentation_image);
 
 	// rmb-ss added
-//	cv_bridge::CvImageConstPtr face_position_image_ptr;
-//	cv::Mat face_position_image;
-//	convertDepthColorImageMessageToMat(face_position_image_msg_in, face_position_image_ptr, face_position_image);
+	//cv_bridge::CvImageConstPtr face_position_image_ptr;
+	//cv::Mat face_position_image;
+	//convertDepthColorImageMessageToMat(face_position_image_msg_in, face_position_image_ptr, face_position_image);
 	// end rmb-ss
 
 	if (debug_)

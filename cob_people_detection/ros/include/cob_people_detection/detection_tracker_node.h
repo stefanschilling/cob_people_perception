@@ -76,6 +76,10 @@
 //#include <sensor_msgs/PointCloud2.h>
 #include <cob_people_detection_msgs/DetectionArray.h>
 
+// rmb-ss
+#include <cob_people_detection_msgs/ColorDepthImageArray.h>
+// end rmb-ss
+
 // services
 //#include <cob_people_detection/DetectPeople.h>
 
@@ -116,9 +120,11 @@ protected:
 
 	message_filters::Synchronizer<message_filters::sync_policies::ApproximateTime<cob_people_detection_msgs::DetectionArray, sensor_msgs::Image> >* sync_input_2_;
 	message_filters::Subscriber<cob_people_detection_msgs::DetectionArray> face_position_subscriber_; ///< receives the face messages from the face detector
+
 	//rmb-ss
-	//message_filters::Subscriber<cob_people_detection_msgs::ColorDepthImage> face_image_subscriber_; ///< receives face image messages
+	message_filters::Subscriber<cob_people_detection_msgs::ColorDepthImageArray> face_image_subscriber_; ///< receives face image messages
 	//end rmb-ss
+
 	ros::Publisher face_position_publisher_; ///< publisher for the positions of the detected faces
 
 	ros::NodeHandle node_handle_; ///< ROS node handle
