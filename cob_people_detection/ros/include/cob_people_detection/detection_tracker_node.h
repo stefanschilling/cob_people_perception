@@ -119,9 +119,11 @@ protected:
 	image_transport::SubscriberFilter people_segmentation_image_sub_; ///< Color camera image topic
 
 	message_filters::Synchronizer<message_filters::sync_policies::ApproximateTime<cob_people_detection_msgs::DetectionArray, sensor_msgs::Image> >* sync_input_2_;
+
 	message_filters::Subscriber<cob_people_detection_msgs::DetectionArray> face_position_subscriber_; ///< receives the face messages from the face detector
 
 	//rmb-ss
+	message_filters::Synchronizer<message_filters::sync_policies::ApproximateTime<cob_people_detection_msgs::DetectionArray, cob_people_detection_msgs::ColorDepthImageArray> >* sync_input_2a_;
 	message_filters::Subscriber<cob_people_detection_msgs::ColorDepthImageArray> face_image_subscriber_; ///< receives face image messages
 	//end rmb-ss
 
@@ -186,8 +188,7 @@ public:
 	unsigned long prepareFacePositionMessage(cob_people_detection_msgs::DetectionArray& face_position_msg_out, ros::Time image_recording_time);
 
 	/// checks the detected faces from the input topic against the people segmentation and outputs faces if both are positive
-	// void inputCallback(const cob_people_detection_msgs::DetectionArray::ConstPtr& face_position_msg_in, const sensor_msgs::Image::ConstPtr& people_segmentation_image_msg, const cob_people_detection_msgs::ColorDepthImage::_color_image_type& face_image_msg_in);
-	void inputCallback(const cob_people_detection_msgs::DetectionArray::ConstPtr& face_position_msg_in, const sensor_msgs::Image::ConstPtr& people_segmentation_image_msg);
+	void inputCallback(const cob_people_detection_msgs::DetectionArray::ConstPtr& face_position_msg_in, const sensor_msgs::Image::ConstPtr& people_segmentation_image_msg, const cob_people_detection_msgs::ColorDepthImageArray::ConstPtr& face_image_msg_in);
 };
 
 };

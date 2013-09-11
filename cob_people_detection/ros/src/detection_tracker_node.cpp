@@ -118,6 +118,10 @@ DetectionTrackerNode::DetectionTrackerNode(ros::NodeHandle nh)
 	it_ = 0;
 	sync_input_2_ = 0;
 
+	// rmb-ss
+	sync_input_2a_ = 0;
+	// end rmb-ss
+
 	// parameters
 	std::cout << "\n---------------------------\nPeople Detection Parameters:\n---------------------------\n";
 	node_handle_.param("debug", debug_, false);
@@ -153,26 +157,32 @@ DetectionTrackerNode::DetectionTrackerNode(ros::NodeHandle nh)
 	people_segmentation_image_sub_.subscribe(*it_, "people_segmentation_image", 1);
 	face_position_subscriber_.subscribe(node_handle_, "face_position_array_in", 1);
 
-	face_image_subscriber_.subscribe(node_handle_, "face_positions", 1000);
+	// rmb-ss
+	face_image_subscriber_.subscribe(node_handle_, "/cob_people_detection/face_detector/face_positions", 1);
+	// end rmb-ss
 
 	// input synchronization
 	sensor_msgs::Image::ConstPtr nullPtr;
+	// rmb-ss
+	cob_people_detection_msgs::ColorDepthImageArray::ConstPtr nullPtrCDI;
+	// end rmb-ss
+
 	if (use_people_segmentation_ == true)
 	{
 		sync_input_2_ = new message_filters::Synchronizer<message_filters::sync_policies::ApproximateTime<cob_people_detection_msgs::DetectionArray, sensor_msgs::Image> >(2);
 		sync_input_2_->connectInput(face_position_subscriber_, people_segmentation_image_sub_);
-		sync_input_2_->registerCallback(boost::bind(&DetectionTrackerNode::inputCallback, this, _1, _2));
-	}
-	else
-	{
-		face_position_subscriber_.registerCallback(boost::bind(&DetectionTrackerNode::inputCallback, this, _1, nullPtr));
+		sync_input_2_->registerCallback(boost::bind(&DetectionTrackerNode::inputCallback, this, _1, _2, nullPtrCDI));
 	}
 //	else
 //	{
-//		sync_input_2_ = new message_filters::Synchronizer<message_filters::sync_policies::ApproximateTime<cob_people_detection_msgs::DetectionArray, cob_people_detection_msgs::ColorDepthImage>>(2);
-//		sync_input_2_->connectInput(face_position_subscriber_, face_image_subscriber_);
-//		sync_input_2_->registerCallback(boost::bind(&DetectionTrackerNode::inputCallback,this, _1, _2));
+//		face_position_subscriber_.registerCallback(boost::bind(&DetectionTrackerNode::inputCallback, this, _1, nullPtr));
 //	}
+	else
+	{
+		sync_input_2a_ = new message_filters::Synchronizer<message_filters::sync_policies::ApproximateTime<cob_people_detection_msgs::DetectionArray, cob_people_detection_msgs::ColorDepthImageArray> >(2);
+		sync_input_2a_->connectInput(face_position_subscriber_, face_image_subscriber_);
+		sync_input_2a_->registerCallback(boost::bind(&DetectionTrackerNode::inputCallback,this, _1, nullPtr, _2));
+	}
 
 	// publishers
 	face_position_publisher_ = node_handle_.advertise<cob_people_detection_msgs::DetectionArray>("face_position_array", 1);
@@ -182,8 +192,11 @@ DetectionTrackerNode::DetectionTrackerNode(ros::NodeHandle nh)
 
 DetectionTrackerNode::~DetectionTrackerNode()
 {
-  if (it_ != 0) delete it_;
-  if (sync_input_2_ != 0) delete sync_input_2_;
+	if (it_ != 0) delete it_;
+	if (sync_input_2_ != 0) delete sync_input_2_;
+	// rmb-ss
+	if (sync_input_2a_ != 0) delete sync_input_2a_;
+	// end rmb-ss
 }
 
 /// Converts a color image message to cv::Mat format.
@@ -423,8 +436,7 @@ unsigned long DetectionTrackerNode::prepareFacePositionMessage(cob_people_detect
 
 
 /// checks the detected faces from the input topic against the people segmentation and outputs faces if both are positive
-//void DetectionTrackerNode::inputCallback(const cob_people_detection_msgs::DetectionArray::ConstPtr& face_position_msg_in, const sensor_msgs::Image::ConstPtr& people_segmentation_image_msg, const cob_people_detection_msgs::ColorDepthImage::_color_image_type& face_image_msg_in)
-void DetectionTrackerNode::inputCallback(const cob_people_detection_msgs::DetectionArray::ConstPtr& face_position_msg_in, const sensor_msgs::Image::ConstPtr& people_segmentation_image_msg)
+void DetectionTrackerNode::inputCallback(const cob_people_detection_msgs::DetectionArray::ConstPtr& face_position_msg_in, const sensor_msgs::Image::ConstPtr& people_segmentation_image_msg, const cob_people_detection_msgs::ColorDepthImageArray::ConstPtr& face_image_msg_in)
 {
 	// todo? make update rates time dependent!
 	// NOT USEFUL, as true detections occur with same rate as decay -> so computing power only affects response time to a changed situation
@@ -439,9 +451,9 @@ void DetectionTrackerNode::inputCallback(const cob_people_detection_msgs::Detect
 		convertColorImageMessageToMat(people_segmentation_image_msg, people_segmentation_image_ptr, people_segmentation_image);
 
 	// rmb-ss added
-	//cv_bridge::CvImageConstPtr face_position_image_ptr;
+	//cv_bridge::CvImageConstPtr face_image_ptr;
 	//cv::Mat face_position_image;
-	//convertDepthColorImageMessageToMat(face_position_image_msg_in, face_position_image_ptr, face_position_image);
+	//convertDepthColorImageMessageToMat(face_image_msg_in, face_position_image_ptr, face_position_image);
 	// end rmb-ss
 
 	if (debug_)
