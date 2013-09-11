@@ -216,29 +216,6 @@ unsigned long DetectionTrackerNode::convertColorImageMessageToMat(const sensor_m
 	return ipa_Utils::RET_OK;
 }
 
-// rmb-ss added
-// Converts a color depth image message to cv::Mat format
-//unsigned long DetectionTrackerNode::convertDepthColorImageMessageToMat(const cob_people_detection_msgs::ColorDepthImage::ConstPtr& image_msg, cv_bridge::CvImageConstPtr& image_ptr, cv::Mat& image)
-//{
-//	try
-//	{
-//		image_ptr = cv_bridge::toCvShare(image_msg, sensor_msgs::image_encodings::BGR8);
-//	}
-//	catch (cv_bridge::Exception& e)
-//	{
-//		ROS_ERROR("PeopleDetection: cv_bridge exception: %s", e.what());
-//		return ipa_Utils::RET_FAILED;
-//	}
-//	image = image_ptr->image;
-//
-//	//cv::namedWindow("foo");
-//	//cv::imshow("foo", image);
-//
-//
-//	return ipa_Utils::RET_OK;
-//}
-// end rmb-ss
-
 /// Copies the data from src to dest.
 /// @param src The new data which shall be copied into dest
 /// @param dst The new data src is copied into dest
@@ -353,10 +330,17 @@ double DetectionTrackerNode::computeFacePositionDistance(const cob_people_detect
 }
 
 //new check rmb-ss
-double DetectionTrackerNode::computeFacePositionImageSimilarity(const cob_people_detection_msgs::Detection& previous_detection, const cob_people_detection_msgs::Detection& current_detection)
+double DetectionTrackerNode::computeFacePositionImageSimilarity(const cv::Mat& previous_detection, const cv::Mat& current_detection)
 {
-	std::cout << "Yay, stuff was called. Hello World of CPP" << "\n";
+	std::cout << "Calc difference of CVMats" << "\n";
 	//std::cout << previous_detection << "\n";
+//	for (int i=0; i<previous_detection.cols; i++)
+//	{
+//		for (int j=0; j<previous_detection.rows; j++)
+//		{
+//
+//		}
+//	}
 
 
 
@@ -451,9 +435,27 @@ void DetectionTrackerNode::inputCallback(const cob_people_detection_msgs::Detect
 		convertColorImageMessageToMat(people_segmentation_image_msg, people_segmentation_image_ptr, people_segmentation_image);
 
 	// rmb-ss added
-	//cv_bridge::CvImageConstPtr face_image_ptr;
-	//cv::Mat face_position_image;
-	//convertDepthColorImageMessageToMat(face_image_msg_in, face_position_image_ptr, face_position_image);
+	cv_bridge::CvImageConstPtr face_image_ptr;
+	cv::Mat face_position_image;
+
+//	if (face_image_msg_in->head_detections.size()!=face_position_msg_in->detections.size())
+//	{
+//		std::cout << "head_detections and detections not equal.";
+//	}
+//	else
+//	{
+//		std::cout << "even number of detections and head_detections, may be able to use same index.";
+//	}
+	for(int i=0; i<(int)face_image_msg_in->head_detections.size(); i++)
+	{
+		const sensor_msgs::Image face_image_msg = face_image_msg_in->head_detections[i].color_image;
+
+		//convertColorImageMessageToMat(face_image_msg, face_image_ptr, face_position_image);
+		//computeFacePositionImageSimilarity(face_position_image, face_position_image);
+		//do stuff
+
+	}
+
 	// end rmb-ss
 
 	if (debug_)
@@ -597,7 +599,7 @@ void DetectionTrackerNode::inputCallback(const cob_people_detection_msgs::Detect
 				//rmb-ss, added + computeFacePositionImageSimilarity
 				costs_matrix[previous_det][i] = 100*computeFacePositionDistance(face_position_accumulator_[previous_det], face_position_msg_in->detections[face_detection_indices[i]])
 												+ 100*tracking_range_m_ * (face_position_msg_in->detections[face_detection_indices[i]].label.compare(face_position_accumulator_[previous_det].label)==0 ? 0 : 1)
-												+ computeFacePositionImageSimilarity(face_position_accumulator_[previous_det], face_position_msg_in->detections[face_detection_indices[i]]);
+												+ computeFacePositionImageSimilarity(face_position_image, face_position_image);
 				if (debug_)
 					std::cout << costs_matrix[previous_det][i] << "\t";
 			}

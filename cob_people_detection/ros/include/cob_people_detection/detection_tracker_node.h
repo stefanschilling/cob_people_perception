@@ -177,7 +177,7 @@ public:
 	double computeFacePositionDistance(const cob_people_detection_msgs::Detection& previous_detection, const cob_people_detection_msgs::Detection& current_detection);
 
 	//new stuff rmb-ss
-	double computeFacePositionImageSimilarity(const cob_people_detection_msgs::Detection& previous_detection, const cob_people_detection_msgs::Detection& current_detection);
+	double computeFacePositionImageSimilarity(const cv::Mat& previous_detection, const cv::Mat& current_detection);
 	//unsigned long convertDepthColorImageMessageToMat(const cob_people_detection_msgs::ColorDepthImage::ConstPtr& image_msg, cv_bridge::CvImageConstPtr& image_ptr, cv::Mat& image);
 	//end new stuff rmb-ss
 
