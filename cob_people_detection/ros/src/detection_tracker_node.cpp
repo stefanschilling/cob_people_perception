@@ -212,6 +212,12 @@ unsigned long DetectionTrackerNode::convertColorImageMessageToMat(const sensor_m
 		return ipa_Utils::RET_FAILED;
 	}
 	image = image_ptr->image;
+	std::cout << "conversion was called" << "\n" << "conversion resulted in cv::mat with size X:" << image.cols << " Y: " << image.rows << "\n";
+
+	cv::namedWindow("foo", CV_WINDOW_AUTOSIZE);
+	cv::imshow("foo", image);
+	void wait();
+
 
 	return ipa_Utils::RET_OK;
 }
@@ -329,13 +335,31 @@ double DetectionTrackerNode::computeFacePositionDistance(const cob_people_detect
 	return sqrt(dx*dx+dy*dy+dz*dz);
 }
 
-//new check rmb-ss
+// rmb-ss
 
 void voidDeleter(const sensor_msgs::Image* const) {}
 
-double DetectionTrackerNode::computeFacePositionImageSimilarity(const cv::Mat& previous_detection, const cv::Mat& current_detection)
+void wait()
+  {
+  std::cout << "Press ENTER to continue...";
+  std::cin.ignore( std::numeric_limits <std::streamsize> ::max(), '\n' );
+  }
+
+// receive color_image messages, convert to cvmat, compare cvmats
+double DetectionTrackerNode::computeFacePositionImageSimilarity(const sensor_msgs::Image& previous_image_msg, const sensor_msgs::Image& current_image_msg)
 {
-	std::cout << "Calc difference of CVMats" << "\n";
+	cv_bridge::CvImageConstPtr previous_image_ptr;
+	cv::Mat previous_image;
+	sensor_msgs::ImageConstPtr previous_image_msg_ptr = boost::shared_ptr<sensor_msgs::Image const>(&(previous_image_msg), voidDeleter);
+	convertColorImageMessageToMat(previous_image_msg_ptr, previous_image_ptr, previous_image);
+
+	cv_bridge::CvImageConstPtr current_image_ptr;
+	cv::Mat current_image;
+	sensor_msgs::ImageConstPtr current_image_msg_ptr = boost::shared_ptr<sensor_msgs::Image const>(&(current_image_msg), voidDeleter);
+	convertColorImageMessageToMat(current_image_msg_ptr, current_image_ptr, current_image);
+
+	std::cout << "compare teh sizes! difference in columns: " << abs(previous_image.cols-current_image.cols) << "\n";
+	//std::cout << "Calc difference of CVMats" << "\n";
 	//std::cout << previous_detection << "\n";
 //	for (int i=0; i<previous_detection.cols; i++)
 //	{
@@ -345,12 +369,10 @@ double DetectionTrackerNode::computeFacePositionImageSimilarity(const cv::Mat& p
 //		}
 //	}
 
-
-
 	double cppret = 0;
 	return cppret;
 }
-//end new check rmb-ss
+//end rmb-ss
 
 
 /// Removes multiple instances of a label by renaming the detections with lower score to Unknown.
@@ -436,31 +458,6 @@ void DetectionTrackerNode::inputCallback(const cob_people_detection_msgs::Detect
 	if (use_people_segmentation_ == true)
 		convertColorImageMessageToMat(people_segmentation_image_msg, people_segmentation_image_ptr, people_segmentation_image);
 
-	// rmb-ss added
-	cv_bridge::CvImageConstPtr face_image_ptr;
-	cv::Mat face_image;
-
-//	if (face_image_msg_in->head_detections.size()!=face_position_msg_in->detections.size())
-//	{
-//		std::cout << "head_detections and detections not equal.";
-//	}
-//	else
-//	{
-//		std::cout << "even number of detections and head_detections, may be able to use same index.";
-//	}
-	for(int i=0; i<(int)face_image_msg_in->head_detections.size(); i++)
-	{
-		const sensor_msgs::Image face_image_msg = face_image_msg_in->head_detections[i].color_image;
-		sensor_msgs::ImageConstPtr face_image_msg_ptr = boost::shared_ptr<sensor_msgs::Image const>(&(face_image_msg), voidDeleter);
-		convertColorImageMessageToMat(face_image_msg_ptr, face_image_ptr, face_image);
-		//convertColorImageMessageToMat(face_image_msg, face_image_ptr, face_position_image);
-		//computeFacePositionImageSimilarity(face_position_image, face_position_image);
-		//do stuff
-
-	}
-
-	// end rmb-ss
-
 	if (debug_)
 		std::cout << "incoming detections: " << face_position_msg_in->detections.size() << "\n";
 
@@ -479,6 +476,17 @@ void DetectionTrackerNode::inputCallback(const cob_people_detection_msgs::Detect
 		}
 		if (debug_)
 			std::cout << "Old face positions deleted.\n";
+		// rmb-ss
+		for (int i=(int)face_image_accumulator_.size()-1;i>=0;i--)
+			{
+				// remove old face_images -> header?
+				if ((ros::Time::now()-face_image_accumulator_[i].color_image.header.stamp) > timeSpan)
+				{
+					face_image_accumulator_.erase(face_image_accumulator_.begin()+i);
+				}
+			}
+		// end rmb-ss
+
 	}
 
 	// verify face detections with people segmentation if enabled -> only accept detected faces if a person is segmented at that position
@@ -602,7 +610,7 @@ void DetectionTrackerNode::inputCallback(const cob_people_detection_msgs::Detect
 				//rmb-ss, added + computeFacePositionImageSimilarity
 				costs_matrix[previous_det][i] = 100*computeFacePositionDistance(face_position_accumulator_[previous_det], face_position_msg_in->detections[face_detection_indices[i]])
 												+ 100*tracking_range_m_ * (face_position_msg_in->detections[face_detection_indices[i]].label.compare(face_position_accumulator_[previous_det].label)==0 ? 0 : 1)
-												+ computeFacePositionImageSimilarity(face_image, face_image);
+												+ computeFacePositionImageSimilarity(face_image_accumulator_[previous_det].color_image, face_image_msg_in->head_detections[i].color_image);
 				if (debug_)
 					std::cout << costs_matrix[previous_det][i] << "\t";
 			}
@@ -660,6 +668,11 @@ void DetectionTrackerNode::inputCallback(const cob_people_detection_msgs::Detect
 		if (current_detection_has_matching[i] == false)
 		{
 			const cob_people_detection_msgs::Detection& det_in = face_position_msg_in->detections[face_detection_indices[i]];
+
+			// rmb-ss
+			const cob_people_detection_msgs::ColorDepthImage& head_img_in = face_image_msg_in->head_detections[face_detection_indices[i]];
+			// end rmb-ss
+
 			if (det_in.detector=="face")
 			{
 				// save in accumulator
@@ -669,6 +682,11 @@ void DetectionTrackerNode::inputCallback(const cob_people_detection_msgs::Detect
 				copyDetection(det_in, det_out, false);
 				det_out.pose.header.frame_id = "head_cam3d_link";
 				face_position_accumulator_.push_back(det_out);
+
+				// rmb-ss
+				face_image_accumulator_.push_back(head_img_in);
+				// end rmb-ss
+
 				// remember label history
 				std::map<std::string, double> new_identification_data;
 				//new_identification_data["Unknown"] = 0.0;
