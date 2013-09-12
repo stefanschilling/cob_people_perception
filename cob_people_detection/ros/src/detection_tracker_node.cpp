@@ -330,6 +330,9 @@ double DetectionTrackerNode::computeFacePositionDistance(const cob_people_detect
 }
 
 //new check rmb-ss
+
+void voidDeleter(const sensor_msgs::Image* const) {}
+
 double DetectionTrackerNode::computeFacePositionImageSimilarity(const cv::Mat& previous_detection, const cv::Mat& current_detection)
 {
 	std::cout << "Calc difference of CVMats" << "\n";
@@ -418,7 +421,6 @@ unsigned long DetectionTrackerNode::prepareFacePositionMessage(cob_people_detect
 	return ipa_Utils::RET_OK;
 }
 
-
 /// checks the detected faces from the input topic against the people segmentation and outputs faces if both are positive
 void DetectionTrackerNode::inputCallback(const cob_people_detection_msgs::DetectionArray::ConstPtr& face_position_msg_in, const sensor_msgs::Image::ConstPtr& people_segmentation_image_msg, const cob_people_detection_msgs::ColorDepthImageArray::ConstPtr& face_image_msg_in)
 {
@@ -436,7 +438,7 @@ void DetectionTrackerNode::inputCallback(const cob_people_detection_msgs::Detect
 
 	// rmb-ss added
 	cv_bridge::CvImageConstPtr face_image_ptr;
-	cv::Mat face_position_image;
+	cv::Mat face_image;
 
 //	if (face_image_msg_in->head_detections.size()!=face_position_msg_in->detections.size())
 //	{
@@ -449,7 +451,8 @@ void DetectionTrackerNode::inputCallback(const cob_people_detection_msgs::Detect
 	for(int i=0; i<(int)face_image_msg_in->head_detections.size(); i++)
 	{
 		const sensor_msgs::Image face_image_msg = face_image_msg_in->head_detections[i].color_image;
-
+		sensor_msgs::ImageConstPtr face_image_msg_ptr = boost::shared_ptr<sensor_msgs::Image const>(&(face_image_msg), voidDeleter);
+		convertColorImageMessageToMat(face_image_msg_ptr, face_image_ptr, face_image);
 		//convertColorImageMessageToMat(face_image_msg, face_image_ptr, face_position_image);
 		//computeFacePositionImageSimilarity(face_position_image, face_position_image);
 		//do stuff
@@ -599,7 +602,7 @@ void DetectionTrackerNode::inputCallback(const cob_people_detection_msgs::Detect
 				//rmb-ss, added + computeFacePositionImageSimilarity
 				costs_matrix[previous_det][i] = 100*computeFacePositionDistance(face_position_accumulator_[previous_det], face_position_msg_in->detections[face_detection_indices[i]])
 												+ 100*tracking_range_m_ * (face_position_msg_in->detections[face_detection_indices[i]].label.compare(face_position_accumulator_[previous_det].label)==0 ? 0 : 1)
-												+ computeFacePositionImageSimilarity(face_position_image, face_position_image);
+												+ computeFacePositionImageSimilarity(face_image, face_image);
 				if (debug_)
 					std::cout << costs_matrix[previous_det][i] << "\t";
 			}
