@@ -212,12 +212,6 @@ unsigned long DetectionTrackerNode::convertColorImageMessageToMat(const sensor_m
 		return ipa_Utils::RET_FAILED;
 	}
 	image = image_ptr->image;
-	std::cout << "conversion was called" << "\n" << "conversion resulted in cv::mat with size X:" << image.cols << " Y: " << image.rows << "\n";
-
-	cv::namedWindow("foo", CV_WINDOW_AUTOSIZE);
-	cv::imshow("foo", image);
-	void wait();
-
 
 	return ipa_Utils::RET_OK;
 }
@@ -348,73 +342,178 @@ void wait()
 // receive color_image messages, convert to cvmat, compare cvmats
 double DetectionTrackerNode::computeFacePositionImageSimilarity(const sensor_msgs::Image& previous_image_msg, const sensor_msgs::Image& current_image_msg)
 {
-//	cv_bridge::CvImageConstPtr previous_image_ptr;
-//	cv::Mat previous_image;
-//	sensor_msgs::ImageConstPtr previous_image_msg_ptr = boost::shared_ptr<sensor_msgs::Image const>(&(previous_image_msg), voidDeleter);
+	//convert old and current image to cvmats
+	cv_bridge::CvImageConstPtr previous_image_ptr;
+	cv::Mat previous_image;
+	sensor_msgs::ImageConstPtr previous_image_msg_ptr = boost::shared_ptr<sensor_msgs::Image const>(&(previous_image_msg), voidDeleter);
+
 //	convertColorImageMessageToMat(previous_image_msg_ptr, previous_image_ptr, previous_image);
 
 	cv_bridge::CvImageConstPtr current_image_ptr;
 	cv::Mat current_image;
 	sensor_msgs::ImageConstPtr current_image_msg_ptr = boost::shared_ptr<sensor_msgs::Image const>(&(current_image_msg), voidDeleter);
 	convertColorImageMessageToMat(current_image_msg_ptr, current_image_ptr, current_image);
-//
+
 //	std::cout << "compare teh sizes! difference in columns: " << abs(previous_image.cols-current_image.cols) << "\n";
+	std::cout << "timestamps: " << previous_image_msg.header.stamp << current_image_msg.header.stamp << "\n";
 
-	// comparison, histograms
-	cv::Mat hsv;
-	cvtColor(current_image, hsv, CV_BGR2HSV);
-	// let's quantize the hue to 30 levels
-	// and the saturation to 32 levels
-	int hbins = 30, sbins = 32;
-	int histSize[] = {hbins, sbins};
-	// hue varies from 0 to 179, see cvtColor
-	float hranges[] = { 0, 180 };
-	// saturation varies from 0 (black-gray-white) to
-	// 255 (pure spectrum color)
-	float sranges[] = { 0, 256 };
-	const float* ranges[] = { hranges, sranges };
-	cv::MatND hist;
-	// we compute the histogram from the 0-th and 1-st channels
-	int channels[] = {0, 1};
 
-	cv::calcHist( &hsv, 1, channels, cv::Mat(), // do not use mask
-		hist, 2, histSize, ranges,
-		true, // the histogram is uniform
-		false );
-	double maxVal=0;
-	minMaxLoc(hist, 0, &maxVal, 0, 0);
+	// comparison, number of significantly changed pixels on resized images
+	// resize images to managable size
+	cv::Mat current_image_thumb;
+	cv::Mat previous_image_thumb;
+	float diff_pixels=0;
+	int diff_threshold = 10; //what is actually returned by at<cv::Vec3b>?
 
-	int scale = 10;
-	cv::Mat histImg = cv::Mat::zeros(sbins*scale, hbins*10, CV_8UC3);
+	cv::resize(current_image, current_image_thumb, cv::Size(15,15));
+	cv::resize(previous_image, previous_image_thumb, cv::Size(15,15));
 
-	for( int h = 0; h < hbins; h++ )
-		for( int s = 0; s < sbins; s++ )
+	// pixel-wise comparison of images, add to diff_pixel if value at coordinate is changed by more than the set threshold
+	for (int i=0; i<current_image_thumb.cols; i++)
+	{
+		for (int j=0; j<current_image_thumb.rows; j++)
 		{
-			float binVal = hist.at<float>(h, s);
-			int intensity = round(binVal*255/maxVal);
-			cv::rectangle(histImg, cv::Point(h*scale, s*scale),
-						 cv::Point( (h+1)*scale - 1, (s+1)*scale - 1),
-						 cv::Scalar::all(intensity),
-						 CV_FILLED );
+			if (current_image_thumb.at<cv::Vec3b>(i,j)[0]-previous_image_thumb.at<cv::Vec3b>(i,j)[0] > diff_threshold || current_image_thumb.at<cv::Vec3b>(i,j)[0]-previous_image_thumb.at<cv::Vec3b>(i,j)[0] < -diff_threshold)
+			{
+				diff_pixels++;
+			}
 		}
+	}
+	// percentage of different pixels changed/total
+	float diff_pixels_perc = diff_pixels/225;
 
-	cv::namedWindow( "Source", 1 );
-	imshow( "Source", current_image );
+	std::cout << "compared image percentage of pixels difference: " << diff_pixels_perc;
 
-	cv::namedWindow( "H-S Histogram", 1 );
-	imshow( "H-S Histogram", histImg );
+	// comparison, euclidean distance of resized images
+	// (using same resized images as above)
+	float diff_sum=0;
+	for (int i=0; i<current_image_thumb.cols; i++)
+	{
+		for (int j=0; j<current_image_thumb.rows; j++)
+		{
+			diff_sum += (current_image_thumb.at<cv::Vec3b>(i,j)[0]-previous_image_thumb.at<cv::Vec3b>(i,j)[0])^2;
+		}
+	}
+	diff_sum = sqrt(diff_sum);
+	// this would need to be normalized somehow?
 
-	cv::waitKey();
-	//std::cout << "Calc difference of CVMats" << "\n";
-	//std::cout << previous_detection << "\n";
-//	for (int i=0; i<previous_detection.cols; i++)
-//	{
-//		for (int j=0; j<previous_detection.rows; j++)
-//		{
+	std::cout << "compared image euclidean distance (not normalized)" << diff_sum;
+
+
+	// comparison, working on resized greyscale image
+	cv::Mat current_image_thumb_grey, previous_image_thumb_grey;
+	cv::cvtColor(current_image_thumb, current_image_thumb_grey, CV_BGR2GRAY);
+	cv::cvtColor(previous_image_thumb, previous_image_thumb_grey, CV_BGR2GRAY);
+
+	// same pixel based tests as before
+	for (int i=0; i<current_image_thumb_grey.cols; i++)
+	{
+		for (int j=0; j<current_image_thumb_grey.rows; j++)
+		{
+			if (current_image_thumb_grey.at<cv::Vec3b>(i,j)[0]-previous_image_thumb_grey.at<cv::Vec3b>(i,j)[0] > diff_threshold || current_image_thumb_grey.at<cv::Vec3b>(i,j)[0]-previous_image_thumb_grey.at<cv::Vec3b>(i,j)[0] < -diff_threshold)
+			{
+				diff_pixels++;
+			}
+		}
+	}
+	diff_pixels_perc = diff_pixels/225;
+	std::cout << "compared image percentage of pixels difference: " << diff_pixels_perc;
+
+	diff_sum=0;
+	for (int i=0; i<current_image_thumb_grey.cols; i++)
+	{
+		for (int j=0; j<current_image_thumb_grey.rows; j++)
+		{
+			diff_sum += (current_image_thumb_grey.at<cv::Vec3b>(i,j)[0]-previous_image_thumb_grey.at<cv::Vec3b>(i,j)[0])^2;
+		}
+	}
+	diff_sum = sqrt(diff_sum);
+	std::cout << "compared image euclidean distance (not normalized)" << diff_sum;
+
+
+    // Set histogram bins count
+    int bins = 256;
+    int histSize[] = {bins};
+    // Set ranges for histogram bins
+    float lranges[] = {0, 256};
+    const float* ranges[] = {lranges};
+    // create matrix for histogram
+    cv::Mat hist_curr;
+    cv::Mat hist_prev;
+    int channels[] = {0};
+
+    // create matrix for histogram visualization
+    int const hist_height = 256;
+    cv::Mat3b hist_image_curr = cv::Mat3b::zeros(hist_height, bins);
+    cv::Mat3b hist_image_prev = cv::Mat3b::zeros(hist_height, bins);
+
+    cv::calcHist(&current_image_thumb_grey, 1, channels, cv::Mat(), hist_curr, 1, histSize, ranges, true, false);
+    cv::calcHist(&previous_image_thumb_grey, 1, channels, cv::Mat(), hist_prev, 1, histSize, ranges, true, false);
+
+    double max_val_curr=0, max_val_prev;
+    minMaxLoc(hist_curr, 0, &max_val_curr);
+    minMaxLoc(hist_prev, 0, &max_val_prev);
+
+    // visualize each bin
+    for(int b = 0; b < bins; b++) {
+        float binVal = hist_curr.at<float>(b);
+        int height = cvRound(binVal*hist_height/max_val_curr);
+        cv::line
+            ( hist_image_curr
+            , cv::Point(b, hist_height-height), cv::Point(b, hist_height)
+            , cv::Scalar::all(255)
+            );
+        binVal = hist_prev.at<float>(b);
+        height = cvRound(binVal*hist_height/max_val_prev);
+        cv::line
+            ( hist_image_prev
+            , cv::Point(b, hist_height-height), cv::Point(b, hist_height)
+            , cv::Scalar::all(255)
+            );
+    }
+    cv::imshow("current image hist", hist_image_curr);
+    cv::imshow("current image hist", hist_image_prev);
+
+
 //
+//
+//	// comparison, histograms
+//	cv::Mat hsv;
+//	cvtColor(current_image, hsv, CV_BGR2HSV);
+//	// let's quantize the hue to 30 levels
+//	// and the saturation to 32 levels
+//	int hbins = 30, sbins = 32;
+//	int histSize[] = {hbins, sbins};
+//	// hue varies from 0 to 179, see cvtColor
+//	float hranges[] = { 0, 180 };
+//	// saturation varies from 0 (black-gray-white) to
+//	// 255 (pure spectrum color)
+//	float sranges[] = { 0, 256 };
+//	const float* ranges[] = { hranges, sranges };
+//	cv::MatND hist;
+//	// we compute the histogram from the 0-th and 1-st channels
+//	int channels[] = {0, 1};
+//
+//	cv::calcHist( &hsv, 1, channels, cv::Mat(), // do not use mask
+//		hist, 2, histSize, ranges,
+//		true, // the histogram is uniform
+//		false );
+//	double maxVal=0;
+//	minMaxLoc(hist, 0, &maxVal, 0, 0);
+//
+//	int scale = 10;
+//	cv::Mat histImg = cv::Mat::zeros(sbins*scale, hbins*10, CV_8UC3);
+//
+//	for( int h = 0; h < hbins; h++ )
+//		for( int s = 0; s < sbins; s++ )
+//		{
+//			float binVal = hist.at<float>(h, s);
+//			int intensity = round(binVal*255/maxVal);
+//			cv::rectangle(histImg, cv::Point(h*scale, s*scale),
+//						 cv::Point( (h+1)*scale - 1, (s+1)*scale - 1),
+//						 cv::Scalar::all(intensity),
+//						 CV_FILLED );
 //		}
-//	}
-
 	double cppret = 0;
 	return cppret;
 }
@@ -523,12 +622,13 @@ void DetectionTrackerNode::inputCallback(const cob_people_detection_msgs::Detect
 		if (debug_)
 			std::cout << "Old face positions deleted.\n";
 		// rmb-ss
+		std::cout << "timestamp of incoming cdi msg: "<< face_image_msg_in->header.stamp << "\n";
 		for (int i=(int)face_image_accumulator_.size()-1;i>=0;i--)
 			{
 				// remove old face_images -> header?
-				if ((ros::Time::now()-face_image_accumulator_[i].color_image.header.stamp) > timeSpan)
+				if ((ros::Time::now()-face_image_accumulator_[i].header.stamp) > timeSpan)
 				{
-					face_image_accumulator_.erase(face_image_accumulator_.begin()+i);
+					face_image_accumulator_.erase(face_image_accumulator_.begin()+1);
 				}
 			}
 		// end rmb-ss
@@ -654,9 +754,11 @@ void DetectionTrackerNode::inputCallback(const cob_people_detection_msgs::Detect
 			for (unsigned int i=0; i<face_detection_indices.size(); i++)
 			{
 				//rmb-ss, added + computeFacePositionImageSimilarity
+//				costs_matrix[previous_det][i] = 100*computeFacePositionDistance(face_position_accumulator_[previous_det], face_position_msg_in->detections[face_detection_indices[i]])
+//												+ 100*tracking_range_m_ * (face_position_msg_in->detections[face_detection_indices[i]].label.compare(face_position_accumulator_[previous_det].label)==0 ? 0 : 1);
 				costs_matrix[previous_det][i] = 100*computeFacePositionDistance(face_position_accumulator_[previous_det], face_position_msg_in->detections[face_detection_indices[i]])
-												+ 100*tracking_range_m_ * (face_position_msg_in->detections[face_detection_indices[i]].label.compare(face_position_accumulator_[previous_det].label)==0 ? 0 : 1)
-												+ computeFacePositionImageSimilarity(face_image_accumulator_[previous_det].color_image, face_image_msg_in->head_detections[i].color_image);
+																+ 100*tracking_range_m_ * (face_position_msg_in->detections[face_detection_indices[i]].label.compare(face_position_accumulator_[previous_det].label)==0 ? 0 : 1)
+																+ computeFacePositionImageSimilarity(face_image_accumulator_[previous_det], face_image_msg_in->head_detections[i].color_image);
 				if (debug_)
 					std::cout << costs_matrix[previous_det][i] << "\t";
 			}
@@ -715,10 +817,6 @@ void DetectionTrackerNode::inputCallback(const cob_people_detection_msgs::Detect
 		{
 			const cob_people_detection_msgs::Detection& det_in = face_position_msg_in->detections[face_detection_indices[i]];
 
-			// rmb-ss
-			const cob_people_detection_msgs::ColorDepthImage& head_img_in = face_image_msg_in->head_detections[face_detection_indices[i]];
-			// end rmb-ss
-
 			if (det_in.detector=="face")
 			{
 				// save in accumulator
@@ -730,7 +828,7 @@ void DetectionTrackerNode::inputCallback(const cob_people_detection_msgs::Detect
 				face_position_accumulator_.push_back(det_out);
 
 				// rmb-ss
-				face_image_accumulator_.push_back(head_img_in);
+				face_image_accumulator_.push_back(face_image_msg_in->head_detections[face_detection_indices[i]].color_image);
 				// end rmb-ss
 
 				// remember label history
@@ -739,6 +837,8 @@ void DetectionTrackerNode::inputCallback(const cob_people_detection_msgs::Detect
 				new_identification_data["UnknownHead"] = 0.0;
 				new_identification_data[det_in.label] = 1.0;
 				face_identification_votes_.push_back(new_identification_data);
+
+				std::cout << "image accu size: " << face_image_accumulator_.size() << " position accu size: " << face_position_accumulator_.size() << "\n";
 			}
 		}
 	}
