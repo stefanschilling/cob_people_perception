@@ -365,8 +365,8 @@ double DetectionTrackerNode::computeFacePositionImageSimilarity(const sensor_msg
 	float diff_pixels=0;
 	int diff_threshold = 10; //what is actually returned by at<cv::Vec3b>?
 
-	cv::resize(current_image, current_image_thumb, cv::Size(15,15));
-	cv::resize(previous_image, previous_image_thumb, cv::Size(15,15));
+	cv::resize(current_image, current_image_thumb, cv::Size(30,30));
+	cv::resize(current_image, previous_image_thumb, cv::Size(30,30));
 
 	// pixel-wise comparison of images, add to diff_pixel if value at coordinate is changed by more than the set threshold
 	for (int i=0; i<current_image_thumb.cols; i++)
@@ -382,7 +382,7 @@ double DetectionTrackerNode::computeFacePositionImageSimilarity(const sensor_msg
 	// percentage of different pixels changed/total
 	float diff_pixels_perc = diff_pixels/225;
 
-	std::cout << "compared image percentage of pixels difference: " << diff_pixels_perc;
+	std::cout << "compared image percentage of pixels difference: " << diff_pixels_perc << "\n";
 
 	// comparison, euclidean distance of resized images
 	// (using same resized images as above)
@@ -397,13 +397,17 @@ double DetectionTrackerNode::computeFacePositionImageSimilarity(const sensor_msg
 	diff_sum = sqrt(diff_sum);
 	// this would need to be normalized somehow?
 
-	std::cout << "compared image euclidean distance (not normalized)" << diff_sum;
+	std::cout << "compared image euclidean distance (not normalized)" << diff_sum << "\n";
 
 
 	// comparison, working on resized greyscale image
 	cv::Mat current_image_thumb_grey, previous_image_thumb_grey;
 	cv::cvtColor(current_image_thumb, current_image_thumb_grey, CV_BGR2GRAY);
 	cv::cvtColor(previous_image_thumb, previous_image_thumb_grey, CV_BGR2GRAY);
+
+    cv::imshow("current image", current_image);
+    cv::imshow("current image thumb", current_image_thumb);
+    cv::imshow("current image thumb grey", current_image_thumb_grey);
 
 	// same pixel based tests as before
 	for (int i=0; i<current_image_thumb_grey.cols; i++)
@@ -417,7 +421,7 @@ double DetectionTrackerNode::computeFacePositionImageSimilarity(const sensor_msg
 		}
 	}
 	diff_pixels_perc = diff_pixels/225;
-	std::cout << "compared image percentage of pixels difference: " << diff_pixels_perc;
+	std::cout << "compared grey image percentage of pixels difference: " << diff_pixels_perc << "\n";
 
 	diff_sum=0;
 	for (int i=0; i<current_image_thumb_grey.cols; i++)
@@ -428,7 +432,7 @@ double DetectionTrackerNode::computeFacePositionImageSimilarity(const sensor_msg
 		}
 	}
 	diff_sum = sqrt(diff_sum);
-	std::cout << "compared image euclidean distance (not normalized)" << diff_sum;
+	std::cout << "compared grey image euclidean distance (not normalized)" << diff_sum << "\n";
 
 
     // Set histogram bins count
@@ -472,7 +476,12 @@ double DetectionTrackerNode::computeFacePositionImageSimilarity(const sensor_msg
             );
     }
     cv::imshow("current image hist", hist_image_curr);
-    cv::imshow("current image hist", hist_image_prev);
+    cv::imshow("previous image hist", hist_image_prev);
+
+    cv::Mat image_hsv;
+    cv::cvtColor(current_image, image_hsv, CV_BGR2HSV);
+    cv::imshow("current_image_hsv", image_hsv);
+    cv::waitKey();
 
 
 //
@@ -622,10 +631,11 @@ void DetectionTrackerNode::inputCallback(const cob_people_detection_msgs::Detect
 		if (debug_)
 			std::cout << "Old face positions deleted.\n";
 		// rmb-ss
-		std::cout << "timestamp of incoming cdi msg: "<< face_image_msg_in->header.stamp << "\n";
+		// problem: color image header is not identical with header of color depth image,
 		for (int i=(int)face_image_accumulator_.size()-1;i>=0;i--)
 			{
 				// remove old face_images -> header?
+				std::cout << "timestamp of incoming cdi msg: "<< face_image_msg_in->header.stamp << "timestamp of message in accumulator: " << face_image_accumulator_[i].header.stamp <<"\n";
 				if ((ros::Time::now()-face_image_accumulator_[i].header.stamp) > timeSpan)
 				{
 					face_image_accumulator_.erase(face_image_accumulator_.begin()+1);
