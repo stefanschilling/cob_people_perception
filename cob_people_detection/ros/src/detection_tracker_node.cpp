@@ -216,6 +216,7 @@ unsigned long DetectionTrackerNode::convertColorImageMessageToMat(const sensor_m
 	return ipa_Utils::RET_OK;
 }
 
+
 /// Copies the data from src to dest.
 /// @param src The new data which shall be copied into dest
 /// @param dst The new data src is copied into dest
@@ -331,32 +332,51 @@ double DetectionTrackerNode::computeFacePositionDistance(const cob_people_detect
 
 // rmb-ss
 
-void voidDeleter(const sensor_msgs::Image* const) {}
+// alternative msg to mat converter, preserving the original encoding
+unsigned long DetectionTrackerNode::convertColorImageMessageToMatAlt(const sensor_msgs::Image::ConstPtr& image_msg, cv_bridge::CvImageConstPtr& image_ptr, cv::Mat& image)
+{
+	try
+	{
+		image_ptr = cv_bridge::toCvShare(image_msg);
+	}
+	catch (cv_bridge::Exception& e)
+	{
+		ROS_ERROR("PeopleDetection: cv_bridge exception: %s", e.what());
+		return ipa_Utils::RET_FAILED;
+	}
+	image = image_ptr->image;
 
-void wait()
-  {
-  std::cout << "Press ENTER to continue...";
-  std::cin.ignore( std::numeric_limits <std::streamsize> ::max(), '\n' );
-  }
+	return ipa_Utils::RET_OK;
+}
+
+void voidDeleter(const sensor_msgs::Image* const) {}
 
 // receive color_image messages, convert to cvmat, compare cvmats
 double DetectionTrackerNode::computeFacePositionImageSimilarity(const sensor_msgs::Image& previous_image_msg, const sensor_msgs::Image& current_image_msg)
 {
+	std::cout << " timestamps yarrr: \n" << previous_image_msg.header << " \n" << current_image_msg.header;
 	//convert old and current image to cvmats
 	cv_bridge::CvImageConstPtr previous_image_ptr;
 	cv::Mat previous_image;
 	sensor_msgs::ImageConstPtr previous_image_msg_ptr = boost::shared_ptr<sensor_msgs::Image const>(&(previous_image_msg), voidDeleter);
 
-//	convertColorImageMessageToMat(previous_image_msg_ptr, previous_image_ptr, previous_image);
+	convertColorImageMessageToMatAlt(previous_image_msg_ptr, previous_image_ptr, previous_image);
 
 	cv_bridge::CvImageConstPtr current_image_ptr;
 	cv::Mat current_image;
 	sensor_msgs::ImageConstPtr current_image_msg_ptr = boost::shared_ptr<sensor_msgs::Image const>(&(current_image_msg), voidDeleter);
 	convertColorImageMessageToMat(current_image_msg_ptr, current_image_ptr, current_image);
 
+	// try alternative image converter, show both results to compare
+	cv::Mat current_image_alt;
+	convertColorImageMessageToMatAlt(current_image_msg_ptr, current_image_ptr, current_image_alt);
+	// cv::imshow("current image standard converter", current_image);
+	cv::imshow("current image alternative converter", current_image_alt);
+	cv::imshow("previous image alternative converter", previous_image);
+
+
 //	std::cout << "compare teh sizes! difference in columns: " << abs(previous_image.cols-current_image.cols) << "\n";
 	std::cout << "timestamps: " << previous_image_msg.header.stamp << current_image_msg.header.stamp << "\n";
-
 
 	// comparison, number of significantly changed pixels on resized images
 	// resize images to managable size
@@ -405,9 +425,9 @@ double DetectionTrackerNode::computeFacePositionImageSimilarity(const sensor_msg
 	cv::cvtColor(current_image_thumb, current_image_thumb_grey, CV_BGR2GRAY);
 	cv::cvtColor(previous_image_thumb, previous_image_thumb_grey, CV_BGR2GRAY);
 
-    cv::imshow("current image", current_image);
-    cv::imshow("current image thumb", current_image_thumb);
-    cv::imshow("current image thumb grey", current_image_thumb_grey);
+//    cv::imshow("current image", current_image);
+//    cv::imshow("current image thumb", current_image_thumb);
+//    cv::imshow("current image thumb grey", current_image_thumb_grey);
 
 	// same pixel based tests as before
 	for (int i=0; i<current_image_thumb_grey.cols; i++)
@@ -475,54 +495,23 @@ double DetectionTrackerNode::computeFacePositionImageSimilarity(const sensor_msg
             , cv::Scalar::all(255)
             );
     }
-    cv::imshow("current image hist", hist_image_curr);
-    cv::imshow("previous image hist", hist_image_prev);
+    // compare hist crashed program
+    // cv::compareHist(hist_image_curr, hist_image_prev, CV_COMP_CORREL);
+    // Methods for Histogram Comparison:
+    //    CV_COMP_CORREL Correlation
+    //    CV_COMP_CHISQR Chi-Square
+    //    CV_COMP_INTERSECT Intersection
+    //    CV_COMP_BHATTACHARYYA Bhattacharyya distance
+
+
+//    cv::imshow("current image hist", hist_image_curr);
+//    cv::imshow("previous image hist", hist_image_prev);
 
     cv::Mat image_hsv;
     cv::cvtColor(current_image, image_hsv, CV_BGR2HSV);
-    cv::imshow("current_image_hsv", image_hsv);
+//    cv::imshow("current_image_hsv", image_hsv);
     cv::waitKey();
 
-
-//
-//
-//	// comparison, histograms
-//	cv::Mat hsv;
-//	cvtColor(current_image, hsv, CV_BGR2HSV);
-//	// let's quantize the hue to 30 levels
-//	// and the saturation to 32 levels
-//	int hbins = 30, sbins = 32;
-//	int histSize[] = {hbins, sbins};
-//	// hue varies from 0 to 179, see cvtColor
-//	float hranges[] = { 0, 180 };
-//	// saturation varies from 0 (black-gray-white) to
-//	// 255 (pure spectrum color)
-//	float sranges[] = { 0, 256 };
-//	const float* ranges[] = { hranges, sranges };
-//	cv::MatND hist;
-//	// we compute the histogram from the 0-th and 1-st channels
-//	int channels[] = {0, 1};
-//
-//	cv::calcHist( &hsv, 1, channels, cv::Mat(), // do not use mask
-//		hist, 2, histSize, ranges,
-//		true, // the histogram is uniform
-//		false );
-//	double maxVal=0;
-//	minMaxLoc(hist, 0, &maxVal, 0, 0);
-//
-//	int scale = 10;
-//	cv::Mat histImg = cv::Mat::zeros(sbins*scale, hbins*10, CV_8UC3);
-//
-//	for( int h = 0; h < hbins; h++ )
-//		for( int s = 0; s < sbins; s++ )
-//		{
-//			float binVal = hist.at<float>(h, s);
-//			int intensity = round(binVal*255/maxVal);
-//			cv::rectangle(histImg, cv::Point(h*scale, s*scale),
-//						 cv::Point( (h+1)*scale - 1, (s+1)*scale - 1),
-//						 cv::Scalar::all(intensity),
-//						 CV_FILLED );
-//		}
 	double cppret = 0;
 	return cppret;
 }
@@ -641,6 +630,16 @@ void DetectionTrackerNode::inputCallback(const cob_people_detection_msgs::Detect
 					face_image_accumulator_.erase(face_image_accumulator_.begin()+1);
 				}
 			}
+
+		for (int i=(int)face_image_array_accumulator2_.size()-1;i>=0;i--)
+					{
+						// remove old face_images -> header?
+						std::cout << "timestamp of incoming cdi array msg: "<< face_image_msg_in->header.stamp << "timestamp of array message in accumulator: " << face_image_array_accumulator2_[i].header.stamp <<"\n";
+						if ((ros::Time::now()-face_image_array_accumulator2_[i].header.stamp) > timeSpan)
+						{
+							face_image_array_accumulator2_.erase(face_image_array_accumulator2_.begin()+1);
+						}
+					}
 		// end rmb-ss
 
 	}
@@ -768,7 +767,7 @@ void DetectionTrackerNode::inputCallback(const cob_people_detection_msgs::Detect
 //												+ 100*tracking_range_m_ * (face_position_msg_in->detections[face_detection_indices[i]].label.compare(face_position_accumulator_[previous_det].label)==0 ? 0 : 1);
 				costs_matrix[previous_det][i] = 100*computeFacePositionDistance(face_position_accumulator_[previous_det], face_position_msg_in->detections[face_detection_indices[i]])
 																+ 100*tracking_range_m_ * (face_position_msg_in->detections[face_detection_indices[i]].label.compare(face_position_accumulator_[previous_det].label)==0 ? 0 : 1)
-																+ computeFacePositionImageSimilarity(face_image_accumulator_[previous_det], face_image_msg_in->head_detections[i].color_image);
+																+ computeFacePositionImageSimilarity(face_image_array_accumulator2_[0].head_detections[previous_det].color_image, face_image_msg_in->head_detections[i].color_image);
 				if (debug_)
 					std::cout << costs_matrix[previous_det][i] << "\t";
 			}
@@ -827,6 +826,9 @@ void DetectionTrackerNode::inputCallback(const cob_people_detection_msgs::Detect
 		{
 			const cob_people_detection_msgs::Detection& det_in = face_position_msg_in->detections[face_detection_indices[i]];
 
+			//face_image_msg_in->head_detections[face_detection_indices[i]].color_image.header = face_image_msg_in->header;
+
+
 			if (det_in.detector=="face")
 			{
 				// save in accumulator
@@ -839,6 +841,8 @@ void DetectionTrackerNode::inputCallback(const cob_people_detection_msgs::Detect
 
 				// rmb-ss
 				face_image_accumulator_.push_back(face_image_msg_in->head_detections[face_detection_indices[i]].color_image);
+				face_image_array_accumulator_.push_back(face_image_msg_in->head_detections[face_detection_indices[i]]);
+				face_image_array_accumulator2_.push_back(*face_image_msg_in);
 				// end rmb-ss
 
 				// remember label history
@@ -849,6 +853,7 @@ void DetectionTrackerNode::inputCallback(const cob_people_detection_msgs::Detect
 				face_identification_votes_.push_back(new_identification_data);
 
 				std::cout << "image accu size: " << face_image_accumulator_.size() << " position accu size: " << face_position_accumulator_.size() << "\n";
+
 			}
 		}
 	}

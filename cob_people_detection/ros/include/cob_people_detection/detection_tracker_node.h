@@ -126,6 +126,8 @@ protected:
 	message_filters::Synchronizer<message_filters::sync_policies::ApproximateTime<cob_people_detection_msgs::DetectionArray, cob_people_detection_msgs::ColorDepthImageArray> >* sync_input_2a_;
 	message_filters::Subscriber<cob_people_detection_msgs::ColorDepthImageArray> face_image_subscriber_; ///< receives face image messages
 	std::vector<sensor_msgs::Image> face_image_accumulator_; // accumulates face images over time
+	std::vector<cob_people_detection_msgs::ColorDepthImage> face_image_array_accumulator_; // accumulates face images over time
+	std::vector<cob_people_detection_msgs::ColorDepthImageArray> face_image_array_accumulator2_; // accumulates face images over time
 	//end rmb-ss
 
 	ros::Publisher face_position_publisher_; ///< publisher for the positions of the detected faces
@@ -179,8 +181,7 @@ public:
 
 	//new stuff rmb-ss
 	double computeFacePositionImageSimilarity(const sensor_msgs::Image& previous_image_msg, const sensor_msgs::Image& current_image_msg);
-	//double computeFacePositionImageSimilarity(const cv::Mat& previous_detection, const cv::Mat& current_detection);
-	//unsigned long convertDepthColorImageMessageToMat(const cob_people_detection_msgs::ColorDepthImage::ConstPtr& image_msg, cv_bridge::CvImageConstPtr& image_ptr, cv::Mat& image);
+	unsigned long convertColorImageMessageToMatAlt(const sensor_msgs::Image::ConstPtr& image_msg, cv_bridge::CvImageConstPtr& image_ptr, cv::Mat& image);
 	//end new stuff rmb-ss
 
 	/// Removes multiple instances of a label by renaming the detections with lower score to Unknown.
