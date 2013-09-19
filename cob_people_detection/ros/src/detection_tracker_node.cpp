@@ -355,28 +355,21 @@ void voidDeleter(const sensor_msgs::Image* const) {}
 double DetectionTrackerNode::computeFacePositionImageSimilarity(const sensor_msgs::Image& previous_image_msg, const sensor_msgs::Image& current_image_msg)
 {
 	std::cout << " timestamps yarrr: \n" << previous_image_msg.header << " \n" << current_image_msg.header;
-	//convert old and current image to cvmats
+
+	// convert old and current image to cvmats using alternative image converter (preserves image encoding of message)
 	cv_bridge::CvImageConstPtr previous_image_ptr;
 	cv::Mat previous_image;
 	sensor_msgs::ImageConstPtr previous_image_msg_ptr = boost::shared_ptr<sensor_msgs::Image const>(&(previous_image_msg), voidDeleter);
-
 	convertColorImageMessageToMatAlt(previous_image_msg_ptr, previous_image_ptr, previous_image);
 
 	cv_bridge::CvImageConstPtr current_image_ptr;
 	cv::Mat current_image;
 	sensor_msgs::ImageConstPtr current_image_msg_ptr = boost::shared_ptr<sensor_msgs::Image const>(&(current_image_msg), voidDeleter);
-	convertColorImageMessageToMat(current_image_msg_ptr, current_image_ptr, current_image);
+	convertColorImageMessageToMatAlt(current_image_msg_ptr, current_image_ptr, current_image);
 
-	// try alternative image converter, show both results to compare
-	cv::Mat current_image_alt;
-	convertColorImageMessageToMatAlt(current_image_msg_ptr, current_image_ptr, current_image_alt);
-	// cv::imshow("current image standard converter", current_image);
-	cv::imshow("current image alternative converter", current_image_alt);
+	// show current and previous image
+	cv::imshow("current image alternative converter", current_image);
 	cv::imshow("previous image alternative converter", previous_image);
-
-
-//	std::cout << "compare teh sizes! difference in columns: " << abs(previous_image.cols-current_image.cols) << "\n";
-	std::cout << "timestamps: " << previous_image_msg.header.stamp << current_image_msg.header.stamp << "\n";
 
 	// comparison, number of significantly changed pixels on resized images
 	// resize images to managable size
@@ -386,7 +379,7 @@ double DetectionTrackerNode::computeFacePositionImageSimilarity(const sensor_msg
 	int diff_threshold = 10; //what is actually returned by at<cv::Vec3b>?
 
 	cv::resize(current_image, current_image_thumb, cv::Size(30,30));
-	cv::resize(current_image, previous_image_thumb, cv::Size(30,30));
+	cv::resize(previous_image, previous_image_thumb, cv::Size(30,30));
 
 	// pixel-wise comparison of images, add to diff_pixel if value at coordinate is changed by more than the set threshold
 	for (int i=0; i<current_image_thumb.cols; i++)
@@ -399,6 +392,7 @@ double DetectionTrackerNode::computeFacePositionImageSimilarity(const sensor_msg
 			}
 		}
 	}
+
 	// percentage of different pixels changed/total
 	float diff_pixels_perc = diff_pixels/225;
 
@@ -415,7 +409,7 @@ double DetectionTrackerNode::computeFacePositionImageSimilarity(const sensor_msg
 		}
 	}
 	diff_sum = sqrt(diff_sum);
-	// this would need to be normalized somehow?
+	// todo: normalize this through total pixel number or max possible difference (pixels*max(diff between pixels))
 
 	std::cout << "compared image euclidean distance (not normalized)" << diff_sum << "\n";
 
@@ -495,7 +489,7 @@ double DetectionTrackerNode::computeFacePositionImageSimilarity(const sensor_msg
             , cv::Scalar::all(255)
             );
     }
-    // compare hist crashed program
+    // todo find out why compare hist crashed program, put comparison to work, normalize result if needed
     // cv::compareHist(hist_image_curr, hist_image_prev, CV_COMP_CORREL);
     // Methods for Histogram Comparison:
     //    CV_COMP_CORREL Correlation
@@ -503,13 +497,13 @@ double DetectionTrackerNode::computeFacePositionImageSimilarity(const sensor_msg
     //    CV_COMP_INTERSECT Intersection
     //    CV_COMP_BHATTACHARYYA Bhattacharyya distance
 
+    // display histograms
+	cv::imshow("current image hist", hist_image_curr);
+	cv::imshow("previous image hist", hist_image_prev);
 
-//    cv::imshow("current image hist", hist_image_curr);
-//    cv::imshow("previous image hist", hist_image_prev);
-
-    cv::Mat image_hsv;
-    cv::cvtColor(current_image, image_hsv, CV_BGR2HSV);
-//    cv::imshow("current_image_hsv", image_hsv);
+	cv::Mat image_hsv;
+//	cv::cvtColor(current_image, image_hsv, CV_BGR2HSV);
+    // cv::imshow("current_image_hsv", image_hsv);
     cv::waitKey();
 
 	double cppret = 0;
