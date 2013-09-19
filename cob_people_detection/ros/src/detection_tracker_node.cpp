@@ -500,9 +500,8 @@ double DetectionTrackerNode::computeFacePositionImageSimilarity(const sensor_msg
     // display histograms
 	cv::imshow("current image hist", hist_image_curr);
 	cv::imshow("previous image hist", hist_image_prev);
-
 	cv::Mat image_hsv;
-//	cv::cvtColor(current_image, image_hsv, CV_BGR2HSV);
+	// cv::cvtColor(current_image, image_hsv, CV_BGR2HSV);
     // cv::imshow("current_image_hsv", image_hsv);
     cv::waitKey();
 
@@ -628,7 +627,7 @@ void DetectionTrackerNode::inputCallback(const cob_people_detection_msgs::Detect
 		for (int i=(int)face_image_array_accumulator2_.size()-1;i>=0;i--)
 					{
 						// remove old face_images -> header?
-						std::cout << "timestamp of incoming cdi array msg: "<< face_image_msg_in->header.stamp << "timestamp of array message in accumulator: " << face_image_array_accumulator2_[i].header.stamp <<"\n";
+						std::cout << "timestamp of incoming cdi array msg: "<< face_image_msg_in->header.stamp << " timestamp of array message in accumulator: " << face_image_array_accumulator2_[i].header.stamp <<"\n";
 						if ((ros::Time::now()-face_image_array_accumulator2_[i].header.stamp) > timeSpan)
 						{
 							face_image_array_accumulator2_.erase(face_image_array_accumulator2_.begin()+1);
@@ -834,9 +833,11 @@ void DetectionTrackerNode::inputCallback(const cob_people_detection_msgs::Detect
 				face_position_accumulator_.push_back(det_out);
 
 				// rmb-ss
-				face_image_accumulator_.push_back(face_image_msg_in->head_detections[face_detection_indices[i]].color_image);
-				face_image_array_accumulator_.push_back(face_image_msg_in->head_detections[face_detection_indices[i]]);
+				// TODO: this currently saves the whole cdi array msg multiple times. Find way to work with just the color image (lead to crashes before) or save the msg only once.
+				// face_image_accumulator_.push_back(face_image_msg_in->head_detections[face_detection_indices[i]].color_image);
+				// face_image_array_accumulator_.push_back(face_image_msg_in->head_detections[face_detection_indices[i]]);
 				face_image_array_accumulator2_.push_back(*face_image_msg_in);
+				std::cout << "image accu size: " << face_image_accumulator_.size() << " position accu size: " << face_position_accumulator_.size() << "\n";
 				// end rmb-ss
 
 				// remember label history
@@ -845,8 +846,6 @@ void DetectionTrackerNode::inputCallback(const cob_people_detection_msgs::Detect
 				new_identification_data["UnknownHead"] = 0.0;
 				new_identification_data[det_in.label] = 1.0;
 				face_identification_votes_.push_back(new_identification_data);
-
-				std::cout << "image accu size: " << face_image_accumulator_.size() << " position accu size: " << face_position_accumulator_.size() << "\n";
 
 			}
 		}
