@@ -569,21 +569,32 @@ double DetectionTrackerNode::computeFacePositionImageSimilarity(const sensor_msg
 
 	//cv::imshow( "previous image edges", grad_prev );
 	//cv::imshow( "current image edges", grad_curr );
+	//sum of grad_total grey values
+	float sum1=0;
+	for (int i=0; i<grad_prev.cols; i++)
+	{
+		for (int j=0; j<grad_prev.rows; j++)
+		{
+			sum1 += grad_prev.at<cv::Vec3b>(i,j)[0];
+		}
+	}
 
 	// remove current edges from previous edges and see what happens.
 	cv::subtract(grad_prev, grad_curr, grad_total );
 	//cv::imshow( "remainder of edge subtraction", grad_total);
 
 	//print sum of leftover pixel values
-	int sum=0;
+	float sum2=0;
 	for (int i=0; i<grad_total.cols; i++)
 	{
 		for (int j=0; j<grad_total.rows; j++)
 		{
-			sum += grad_total.at<cv::Vec3b>(i,j)[0];
+			sum2 += grad_total.at<cv::Vec3b>(i,j)[0];
 		}
 	}
-	std::cout << sum << "\n";
+	std::cout << sum1 << " - " << sum2 << "percentage of previous edges hit: ";
+	float perc =  sum2/sum1;
+	std::cout << perc << "\n";
 
     // display histograms
 	//cv::imshow("current image hist", hist_image_curr);
