@@ -354,7 +354,6 @@ void voidDeleter(const sensor_msgs::Image* const) {}
 // receive color_image messages, convert to cvmat, compare cvmats
 double DetectionTrackerNode::computeFacePositionImageSimilarity(const sensor_msgs::Image& previous_image_msg, const sensor_msgs::Image& current_image_msg)
 {
-	std::cout << " timestamps yarrr: \n" << previous_image_msg.header << " \n" << current_image_msg.header;
 
 	// convert old and current image to cvmats using alternative image converter (preserves image encoding of message)
 	cv_bridge::CvImageConstPtr previous_image_ptr;
@@ -362,14 +361,15 @@ double DetectionTrackerNode::computeFacePositionImageSimilarity(const sensor_msg
 	sensor_msgs::ImageConstPtr previous_image_msg_ptr = boost::shared_ptr<sensor_msgs::Image const>(&(previous_image_msg), voidDeleter);
 	convertColorImageMessageToMatAlt(previous_image_msg_ptr, previous_image_ptr, previous_image);
 
+
 	cv_bridge::CvImageConstPtr current_image_ptr;
 	cv::Mat current_image;
 	sensor_msgs::ImageConstPtr current_image_msg_ptr = boost::shared_ptr<sensor_msgs::Image const>(&(current_image_msg), voidDeleter);
 	convertColorImageMessageToMatAlt(current_image_msg_ptr, current_image_ptr, current_image);
 
 	// show current and previous image
-	cv::imshow("current image alternative converter", current_image);
-	cv::imshow("previous image alternative converter", previous_image);
+	//cv::imshow("current image alternative converter", current_image);
+	//cv::imshow("previous image alternative converter", previous_image);
 
 	// comparison, number of significantly changed pixels on resized images
 	// resize images to managable size
@@ -400,14 +400,16 @@ double DetectionTrackerNode::computeFacePositionImageSimilarity(const sensor_msg
 
 	// comparison, euclidean distance of resized images
 	// (using same resized images as above)
-	float diff_sum=0;
+	double diff_sum=0;
 	for (int i=0; i<current_image_thumb.cols; i++)
 	{
 		for (int j=0; j<current_image_thumb.rows; j++)
 		{
-			diff_sum += (current_image_thumb.at<cv::Vec3b>(i,j)[0]-previous_image_thumb.at<cv::Vec3b>(i,j)[0])^2;
+			diff_sum += (current_image_thumb.at<cv::Vec3b>(i,j)[0]-previous_image_thumb.at<cv::Vec3b>(i,j)[0]) ^ 2;
 		}
 	}
+	std::cout << "trying to get sqrt of this: " << diff_sum;
+
 	diff_sum = sqrt(diff_sum);
 	// todo: normalize this through total pixel number or max possible difference (pixels*max(diff between pixels))
 
@@ -442,9 +444,10 @@ double DetectionTrackerNode::computeFacePositionImageSimilarity(const sensor_msg
 	{
 		for (int j=0; j<current_image_thumb_grey.rows; j++)
 		{
-			diff_sum += (current_image_thumb_grey.at<cv::Vec3b>(i,j)[0]-previous_image_thumb_grey.at<cv::Vec3b>(i,j)[0])^2;
+			diff_sum += (current_image_thumb_grey.at<cv::Vec3b>(i,j)[0]-previous_image_thumb_grey.at<cv::Vec3b>(i,j)[0]) ^ 2;
 		}
 	}
+	std::cout << "trying to get sqrt of this: " << diff_sum;
 	diff_sum = sqrt(diff_sum);
 	std::cout << "compared grey image euclidean distance (not normalized)" << diff_sum << "\n";
 
@@ -473,7 +476,8 @@ double DetectionTrackerNode::computeFacePositionImageSimilarity(const sensor_msg
     minMaxLoc(hist_prev, 0, &max_val_prev);
 
     // visualize each bin
-    for(int b = 0; b < bins; b++) {
+    for(int b = 0; b < bins; b++)
+    {
         float binVal = hist_curr.at<float>(b);
         int height = cvRound(binVal*hist_height/max_val_curr);
         cv::line
@@ -497,13 +501,76 @@ double DetectionTrackerNode::computeFacePositionImageSimilarity(const sensor_msg
     //    CV_COMP_INTERSECT Intersection
     //    CV_COMP_BHATTACHARYYA Bhattacharyya distance
 
+    // comparison, edge overlap scoring
+    // attempt to track detections through edge detection. This is an attempt at a simplified euclidian edge distance algorithm.
+    // previous image edges are expanded into thick greyscale zones, current image edges are laid over this, overlap accumulate greyscale "score" found in expanded border picture.
+    // final score is then compared to ideal score (exact edge match, 255 per edge pixel), it can be both lower and higher.
+
+    // to begin, let's try with the original image converted to greyscale, resizing the current image to match the previous (adding borders to the smaller image would probably be better?).
+
+    // in edge detection examples, blur is first applied to the source image to decrease noise.
+    // cv::GaussianBlur( src, src, Size(3,3), 0, 0, BORDER_DEFAULT );
+
+    cv::GaussianBlur( previous_image, previous_image, cv::Size(3,3), 0, 0, cv::BORDER_DEFAULT );
+    cv::resize(current_image,current_image,cv::Size(previous_image.rows, previous_image.cols));
+    cv::GaussianBlur( current_image, current_image, cv::Size(3,3), 0, 0, cv::BORDER_DEFAULT );
+
+	cv::Mat previous_image_grey, current_image_grey;
+	cv::cvtColor( previous_image, previous_image_grey, CV_RGB2GRAY );
+	cv::cvtColor(current_image, current_image_grey, CV_RGB2GRAY);
+
+    // sobel filtering copied over from http://docs.opencv.org/doc/tutorials/imgproc/imgtrans/sobel_derivatives/sobel_derivatives.html
+    // applied and displayed for previous image
+
+	/// Generate grad_x and grad_y
+	cv::Mat grad_x, grad_y;
+	cv::Mat abs_grad_x, abs_grad_y;
+	cv::Mat grad_prev, grad_curr, grad_total;
+	int scale = 1;
+	int delta = 0;
+	int ddepth = CV_16S;
+
+	/// Gradient X
+	//Scharr( src_gray, grad_x, ddepth, 1, 0, scale, delta, BORDER_DEFAULT );
+	cv::Sobel( previous_image_grey, grad_x, ddepth, 1, 0, 3, scale, delta, cv::BORDER_DEFAULT );
+	cv::convertScaleAbs( grad_x, abs_grad_x );
+
+	/// Gradient Y
+	//Scharr( src_gray, grad_y, ddepth, 0, 1, scale, delta, BORDER_DEFAULT );
+	cv::Sobel( previous_image_grey, grad_y, ddepth, 0, 1, 3, scale, delta, cv::BORDER_DEFAULT );
+	cv::convertScaleAbs( grad_y, abs_grad_y );
+
+	/// Total Gradient (approximate)
+	cv::addWeighted( abs_grad_x, 0.5, abs_grad_y, 0.5, 0, grad_prev );
+
+	//same for current img
+	/// Gradient X
+	//Scharr( src_gray, grad_x, ddepth, 1, 0, scale, delta, BORDER_DEFAULT );
+	cv::Sobel( current_image_grey, grad_x, ddepth, 1, 0, 3, scale, delta, cv::BORDER_DEFAULT );
+	cv::convertScaleAbs( grad_x, abs_grad_x );
+
+	/// Gradient Y
+	//Scharr( src_gray, grad_y, ddepth, 0, 1, scale, delta, BORDER_DEFAULT );
+	cv::Sobel( current_image_grey, grad_y, ddepth, 0, 1, 3, scale, delta, cv::BORDER_DEFAULT );
+	cv::convertScaleAbs( grad_y, abs_grad_y );
+
+	/// Total Gradient (approximate)
+	cv::addWeighted( abs_grad_x, 0.5, abs_grad_y, 0.5, 0, grad_curr );
+
+	//cv::imshow( "previous image edges", grad_prev );
+	//cv::imshow( "current image edges", grad_curr );
+
+	// remove current edges from previous edges and see what happens.
+	cv::subtract(grad_prev, grad_curr, grad_total );
+	//cv::imshow( "remainder of edge subtraction", grad_total);
+
     // display histograms
-	cv::imshow("current image hist", hist_image_curr);
-	cv::imshow("previous image hist", hist_image_prev);
+	//cv::imshow("current image hist", hist_image_curr);
+	//cv::imshow("previous image hist", hist_image_prev);
 	cv::Mat image_hsv;
 	// cv::cvtColor(current_image, image_hsv, CV_BGR2HSV);
     // cv::imshow("current_image_hsv", image_hsv);
-    cv::waitKey();
+    //cv::waitKey();
 
 	double cppret = 0;
 	return cppret;
@@ -614,25 +681,25 @@ void DetectionTrackerNode::inputCallback(const cob_people_detection_msgs::Detect
 			std::cout << "Old face positions deleted.\n";
 		// rmb-ss
 		// problem: color image header is not identical with header of color depth image,
-		for (int i=(int)face_image_accumulator_.size()-1;i>=0;i--)
-			{
-				// remove old face_images -> header?
-				std::cout << "timestamp of incoming cdi msg: "<< face_image_msg_in->header.stamp << "timestamp of message in accumulator: " << face_image_accumulator_[i].header.stamp <<"\n";
-				if ((ros::Time::now()-face_image_accumulator_[i].header.stamp) > timeSpan)
-				{
-					face_image_accumulator_.erase(face_image_accumulator_.begin()+1);
-				}
-			}
-
-		for (int i=(int)face_image_array_accumulator2_.size()-1;i>=0;i--)
-					{
-						// remove old face_images -> header?
-						std::cout << "timestamp of incoming cdi array msg: "<< face_image_msg_in->header.stamp << " timestamp of array message in accumulator: " << face_image_array_accumulator2_[i].header.stamp <<"\n";
-						if ((ros::Time::now()-face_image_array_accumulator2_[i].header.stamp) > timeSpan)
-						{
-							face_image_array_accumulator2_.erase(face_image_array_accumulator2_.begin()+1);
-						}
-					}
+//		for (int i=(int)face_image_accumulator_.size()-1;i>=0;i--)
+//			{
+//				// remove old face_images -> header?
+//				std::cout << "timestamp of incoming cdi msg: "<< face_image_msg_in->header.stamp << "timestamp of message in accumulator: " << face_image_accumulator_[i].header.stamp <<"\n";
+//				if ((ros::Time::now()-face_image_accumulator_[i].header.stamp) > timeSpan)
+//				{
+//					face_image_accumulator_.erase(face_image_accumulator_.begin()+1);
+//				}
+//			}
+//
+//		for (int i=(int)face_image_array_accumulator2_.size()-1;i>=0;i--)
+//					{
+//						// remove old face_images -> header?
+//						std::cout << "timestamp of incoming cdi array msg: "<< face_image_msg_in->header.stamp << " timestamp of array message in accumulator: " << face_image_array_accumulator2_[i].header.stamp <<"\n";
+//						if ((ros::Time::now()-face_image_array_accumulator2_[i].header.stamp) > timeSpan)
+//						{
+//							face_image_array_accumulator2_.erase(face_image_array_accumulator2_.begin()+1);
+//						}
+//					}
 		// end rmb-ss
 
 	}
