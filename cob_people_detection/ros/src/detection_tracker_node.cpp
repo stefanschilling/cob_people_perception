@@ -431,8 +431,8 @@ double DetectionTrackerNode::computeFacePositionImageSimilarity(const sensor_msg
 	cv::cvtColor(previous_image_thumb, previous_image_thumb_grey, CV_BGR2GRAY);
 
 //    cv::imshow("current image", current_image);
-    cv::imshow("current image thumb", current_image_thumb);
-    cv::imshow("previous image thumb", previous_image_thumb);
+ //   cv::imshow("current image thumb", current_image_thumb);
+ //   cv::imshow("previous image thumb", previous_image_thumb);
 
 	// same pixel based tests as before
     diff_pixels=0;
@@ -447,7 +447,7 @@ double DetectionTrackerNode::computeFacePositionImageSimilarity(const sensor_msg
 		}
 	}
 	diff_pixels_perc = diff_pixels/(previous_image_thumb_grey.cols*current_image_thumb_grey.rows);
-	std::cout << "grey image percentage of pixels difference: " << diff_pixels_perc << "\n";
+	//std::cout << "grey image percentage of pixels difference: " << diff_pixels_perc << "\n";
 
 	diff_sum=0;
 	for (int i=0; i<current_image_thumb_grey.cols; i++)
@@ -603,6 +603,94 @@ double DetectionTrackerNode::computeFacePositionImageSimilarity(const sensor_msg
 	// cv::cvtColor(current_image, image_hsv, CV_BGR2HSV);
     // cv::imshow("current_image_hsv", image_hsv);
     //cv::waitKey();
+
+	int left=0, right= 0, top =0, bottom = 0;
+	//pad smaller image with borders to size of larger image
+	if (current_image.cols>previous_image.cols)
+	{
+		left = (current_image.cols - previous_image.cols)/2;
+		right = (current_image.cols - previous_image.cols)/2 + (current_image.cols - previous_image.cols)%2;
+		top = bottom = 0;
+		cv::copyMakeBorder(previous_image, previous_image, top, bottom, left, right, cv::BORDER_REPLICATE);
+	}
+	else if (current_image.cols<previous_image.cols)
+	{
+		left = (-current_image.cols + previous_image.cols)/2;
+		right = (-current_image.cols + previous_image.cols)/2 + (-current_image.cols + previous_image.cols)%2;
+		top = bottom = 0;
+		cv::copyMakeBorder(current_image, current_image, top, bottom, left, right, cv::BORDER_REPLICATE);
+	}
+	if (current_image.rows>previous_image.rows)
+	{
+		left = right = 0;
+		top = (current_image.rows - previous_image.rows)/2;
+		bottom = (current_image.rows - previous_image.rows)/2 + (current_image.rows - previous_image.rows)%2;
+		cv::copyMakeBorder(previous_image, previous_image, top, bottom, left, right, cv::BORDER_REPLICATE);
+	}
+	else if(current_image.rows>previous_image.rows)
+	{
+		left = right = 0;
+		top = (-current_image.rows + previous_image.rows)/2;
+		bottom = (-current_image.rows + previous_image.rows)/2 + (-current_image.rows + previous_image.rows)%2;
+		cv::copyMakeBorder(current_image, current_image, top, bottom, left, right, cv::BORDER_REPLICATE);
+	}
+
+	cv::imshow("padded image vs normal one 1", current_image);
+	cv::imshow("padded image vs normal one 2", previous_image);
+	diff_pixels=0;
+	iterations=0;
+	// pixel-wise comparison of images, add to diff_pixel if value at coordinate is changed by more than the set threshold
+	for (int i=0; i<current_image.cols; i++)
+	{
+		for (int j=0; j<current_image.rows; j++)
+		{
+			for (int n=0; n<3; n++)
+			{
+				iterations++;
+				if (current_image.at<cv::Vec3b>(i,j)[n]-previous_image.at<cv::Vec3b>(i,j)[n] > diff_threshold || current_image.at<cv::Vec3b>(i,j)[n]-previous_image.at<cv::Vec3b>(i,j)[n] < -diff_threshold)
+				{
+					diff_pixels++;
+					break;
+				}
+			}
+		}
+	}
+	std::cout << "went through this many iterations: " << iterations << " and found that many different pixels: " << diff_pixels << "\n";
+	// percentage of different pixels changed/total
+	diff_pixels_perc = diff_pixels/(iterations);
+
+	std::cout << "padded fullsize percentage difference: " << diff_pixels_perc << "\n";
+
+	cv::resize(current_image, current_image_thumb, cv::Size(current_image.rows/2,current_image.cols/2));
+	cv::resize(previous_image, previous_image_thumb, cv::Size(current_image.rows/2,current_image.cols/2));
+
+	diff_pixels =0;
+	iterations=0;
+	// pixel-wise comparison of images, add to diff_pixel if value at coordinate is changed by more than the set threshold
+	for (int i=0; i<current_image_thumb.cols; i++)
+	{
+		for (int j=0; j<current_image_thumb.rows; j++)
+		{
+			for (int n=0; n<3; n++)
+			{
+				iterations++;
+				if (current_image_thumb.at<cv::Vec3b>(i,j)[n]-previous_image_thumb.at<cv::Vec3b>(i,j)[n] > diff_threshold || current_image_thumb.at<cv::Vec3b>(i,j)[n]-previous_image_thumb.at<cv::Vec3b>(i,j)[n] < -diff_threshold)
+				{
+					diff_pixels++;
+					break;
+				}
+			}
+		}
+	}
+	std::cout << "went through this many iterations: " << iterations << " and found that many different pixels: " << diff_pixels << "\n";
+	// percentage of different pixels changed/total
+	diff_pixels_perc = diff_pixels/(iterations);
+
+	std::cout << "padded thumb percentage difference: " << diff_pixels_perc << "\n";
+
+
+
+	//cv::waitKey();
 
 	double cppret = 0;
 	return cppret;
