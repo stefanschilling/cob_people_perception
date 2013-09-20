@@ -362,226 +362,226 @@ double DetectionTrackerNode::computeFacePositionImageSimilarity(const sensor_msg
 	convertColorImageMessageToMatAlt(previous_image_msg_ptr, previous_image_ptr, previous_image);
 
 
-//	cv_bridge::CvImageConstPtr current_image_ptr;
-//	cv::Mat current_image;
-//	sensor_msgs::ImageConstPtr current_image_msg_ptr = boost::shared_ptr<sensor_msgs::Image const>(&(current_image_msg), voidDeleter);
-//	convertColorImageMessageToMatAlt(current_image_msg_ptr, current_image_ptr, current_image);
-//
-//	// show current and previous image
-//	//cv::imshow("current image alternative converter", current_image);
-//	//cv::imshow("previous image alternative converter", previous_image);
-//
-//	// comparison, number of significantly changed pixels on resized images
-//	// resize images to managable size
-//	cv::Mat current_image_thumb;
-//	cv::Mat previous_image_thumb;
-//	float diff_pixels=0;
-//	int diff_threshold = 10; //what is actually returned by at<cv::Vec3b>?
-//
-//	cv::resize(current_image, current_image_thumb, cv::Size(30,30));
-//	cv::resize(previous_image, previous_image_thumb, cv::Size(30,30));
-//
-//	// pixel-wise comparison of images, add to diff_pixel if value at coordinate is changed by more than the set threshold
-//	for (int i=0; i<current_image_thumb.cols; i++)
-//	{
-//		for (int j=0; j<current_image_thumb.rows; j++)
-//		{
-//			if (current_image_thumb.at<cv::Vec3b>(i,j)[0]-previous_image_thumb.at<cv::Vec3b>(i,j)[0] > diff_threshold || current_image_thumb.at<cv::Vec3b>(i,j)[0]-previous_image_thumb.at<cv::Vec3b>(i,j)[0] < -diff_threshold)
-//			{
-//				diff_pixels++;
-//			}
-//		}
-//	}
-//
-//	// percentage of different pixels changed/total
-//	float diff_pixels_perc = diff_pixels/225;
-//
-//	std::cout << "compared image percentage of pixels difference: " << diff_pixels_perc << "\n";
-//
-//	// comparison, euclidean distance of resized images
-//	// (using same resized images as above)
-//	double diff_sum=0;
-//	for (int i=0; i<current_image_thumb.cols; i++)
-//	{
-//		for (int j=0; j<current_image_thumb.rows; j++)
-//		{
-//			diff_sum += (current_image_thumb.at<cv::Vec3b>(i,j)[0]-previous_image_thumb.at<cv::Vec3b>(i,j)[0]) ^ 2;
-//		}
-//	}
-//	std::cout << "trying to get sqrt of this: " << diff_sum;
-//
-//	diff_sum = sqrt(diff_sum);
-//	// todo: normalize this through total pixel number or max possible difference (pixels*max(diff between pixels))
-//
-//	std::cout << "compared image euclidean distance (not normalized)" << diff_sum << "\n";
-//
-//
-//	// comparison, working on resized greyscale image
-//	cv::Mat current_image_thumb_grey, previous_image_thumb_grey;
-//	cv::cvtColor(current_image_thumb, current_image_thumb_grey, CV_BGR2GRAY);
-//	cv::cvtColor(previous_image_thumb, previous_image_thumb_grey, CV_BGR2GRAY);
-//
-////    cv::imshow("current image", current_image);
-////    cv::imshow("current image thumb", current_image_thumb);
-////    cv::imshow("current image thumb grey", current_image_thumb_grey);
-//
-//	// same pixel based tests as before
-//	for (int i=0; i<current_image_thumb_grey.cols; i++)
-//	{
-//		for (int j=0; j<current_image_thumb_grey.rows; j++)
-//		{
-//			if (current_image_thumb_grey.at<cv::Vec3b>(i,j)[0]-previous_image_thumb_grey.at<cv::Vec3b>(i,j)[0] > diff_threshold || current_image_thumb_grey.at<cv::Vec3b>(i,j)[0]-previous_image_thumb_grey.at<cv::Vec3b>(i,j)[0] < -diff_threshold)
-//			{
-//				diff_pixels++;
-//			}
-//		}
-//	}
-//	diff_pixels_perc = diff_pixels/225;
-//	std::cout << "compared grey image percentage of pixels difference: " << diff_pixels_perc << "\n";
-//
-//	diff_sum=0;
-//	for (int i=0; i<current_image_thumb_grey.cols; i++)
-//	{
-//		for (int j=0; j<current_image_thumb_grey.rows; j++)
-//		{
-//			diff_sum += (current_image_thumb_grey.at<cv::Vec3b>(i,j)[0]-previous_image_thumb_grey.at<cv::Vec3b>(i,j)[0]) ^ 2;
-//		}
-//	}
-//	std::cout << "trying to get sqrt of this: " << diff_sum;
-//	diff_sum = sqrt(diff_sum);
-//	std::cout << "compared grey image euclidean distance (not normalized)" << diff_sum << "\n";
-//
-//
-//    // Set histogram bins count
-//    int bins = 256;
-//    int histSize[] = {bins};
-//    // Set ranges for histogram bins
-//    float lranges[] = {0, 256};
-//    const float* ranges[] = {lranges};
-//    // create matrix for histogram
-//    cv::Mat hist_curr;
-//    cv::Mat hist_prev;
-//    int channels[] = {0};
-//
-//    // create matrix for histogram visualization
-//    int const hist_height = 256;
-//    cv::Mat3b hist_image_curr = cv::Mat3b::zeros(hist_height, bins);
-//    cv::Mat3b hist_image_prev = cv::Mat3b::zeros(hist_height, bins);
-//
-//    cv::calcHist(&current_image_thumb_grey, 1, channels, cv::Mat(), hist_curr, 1, histSize, ranges, true, false);
-//    cv::calcHist(&previous_image_thumb_grey, 1, channels, cv::Mat(), hist_prev, 1, histSize, ranges, true, false);
-//
-//    double max_val_curr=0, max_val_prev;
-//    minMaxLoc(hist_curr, 0, &max_val_curr);
-//    minMaxLoc(hist_prev, 0, &max_val_prev);
-//
-//    // visualize each bin
-//    for(int b = 0; b < bins; b++)
-//    {
-//        float binVal = hist_curr.at<float>(b);
-//        int height = cvRound(binVal*hist_height/max_val_curr);
-//        cv::line
-//            ( hist_image_curr
-//            , cv::Point(b, hist_height-height), cv::Point(b, hist_height)
-//            , cv::Scalar::all(255)
-//            );
-//        binVal = hist_prev.at<float>(b);
-//        height = cvRound(binVal*hist_height/max_val_prev);
-//        cv::line
-//            ( hist_image_prev
-//            , cv::Point(b, hist_height-height), cv::Point(b, hist_height)
-//            , cv::Scalar::all(255)
-//            );
-//    }
-//    // todo find out why compare hist crashed program, put comparison to work, normalize result if needed
-//    // cv::compareHist(hist_image_curr, hist_image_prev, CV_COMP_CORREL);
-//    // Methods for Histogram Comparison:
-//    //    CV_COMP_CORREL Correlation
-//    //    CV_COMP_CHISQR Chi-Square
-//    //    CV_COMP_INTERSECT Intersection
-//    //    CV_COMP_BHATTACHARYYA Bhattacharyya distance
-//
-//    // comparison, edge overlap scoring
-//    // attempt to track detections through edge detection. This is an attempt at a simplified euclidian edge distance algorithm.
-//    // previous image edges are expanded into thick greyscale zones, current image edges are laid over this, overlap accumulate greyscale "score" found in expanded border picture.
-//    // final score is then compared to ideal score (exact edge match, 255 per edge pixel), it can be both lower and higher.
-//
-//    // to begin, let's try with the original image converted to greyscale, resizing the current image to match the previous (adding borders to the smaller image would probably be better?).
-//
-//    // in edge detection examples, blur is first applied to the source image to decrease noise.
-//    // cv::GaussianBlur( src, src, Size(3,3), 0, 0, BORDER_DEFAULT );
-//
-//    cv::GaussianBlur( previous_image, previous_image, cv::Size(3,3), 0, 0, cv::BORDER_DEFAULT );
-//    cv::resize(current_image,current_image,cv::Size(previous_image.rows, previous_image.cols));
-//    cv::GaussianBlur( current_image, current_image, cv::Size(3,3), 0, 0, cv::BORDER_DEFAULT );
-//
-//	cv::Mat previous_image_grey, current_image_grey;
-//	cv::cvtColor( previous_image, previous_image_grey, CV_RGB2GRAY );
-//	cv::cvtColor(current_image, current_image_grey, CV_RGB2GRAY);
-//
-//    // sobel filtering copied over from http://docs.opencv.org/doc/tutorials/imgproc/imgtrans/sobel_derivatives/sobel_derivatives.html
-//    // applied and displayed for previous image
-//
-//	/// Generate grad_x and grad_y
-//	cv::Mat grad_x, grad_y;
-//	cv::Mat abs_grad_x, abs_grad_y;
-//	cv::Mat grad_prev, grad_curr, grad_total;
-//	int scale = 1;
-//	int delta = 0;
-//	int ddepth = CV_16S;
-//
-//	/// Gradient X
-//	//Scharr( src_gray, grad_x, ddepth, 1, 0, scale, delta, BORDER_DEFAULT );
-//	cv::Sobel( previous_image_grey, grad_x, ddepth, 1, 0, 3, scale, delta, cv::BORDER_DEFAULT );
-//	cv::convertScaleAbs( grad_x, abs_grad_x );
-//
-//	/// Gradient Y
-//	//Scharr( src_gray, grad_y, ddepth, 0, 1, scale, delta, BORDER_DEFAULT );
-//	cv::Sobel( previous_image_grey, grad_y, ddepth, 0, 1, 3, scale, delta, cv::BORDER_DEFAULT );
-//	cv::convertScaleAbs( grad_y, abs_grad_y );
-//
-//	/// Total Gradient (approximate)
-//	cv::addWeighted( abs_grad_x, 0.5, abs_grad_y, 0.5, 0, grad_prev );
-//
-//	//same for current img
-//	/// Gradient X
-//	//Scharr( src_gray, grad_x, ddepth, 1, 0, scale, delta, BORDER_DEFAULT );
-//	cv::Sobel( current_image_grey, grad_x, ddepth, 1, 0, 3, scale, delta, cv::BORDER_DEFAULT );
-//	cv::convertScaleAbs( grad_x, abs_grad_x );
-//
-//	/// Gradient Y
-//	//Scharr( src_gray, grad_y, ddepth, 0, 1, scale, delta, BORDER_DEFAULT );
-//	cv::Sobel( current_image_grey, grad_y, ddepth, 0, 1, 3, scale, delta, cv::BORDER_DEFAULT );
-//	cv::convertScaleAbs( grad_y, abs_grad_y );
-//
-//	/// Total Gradient (approximate)
-//	cv::addWeighted( abs_grad_x, 0.5, abs_grad_y, 0.5, 0, grad_curr );
-//
-//	//cv::imshow( "previous image edges", grad_prev );
-//	//cv::imshow( "current image edges", grad_curr );
-//
-//	// remove current edges from previous edges and see what happens.
-//	cv::subtract(grad_prev, grad_curr, grad_total );
-//	//cv::imshow( "remainder of edge subtraction", grad_total);
-//
-//	//print sum of leftover pixel values
-//	int sum=0;
-//	for (int i=0; i<grad_total.cols; i++)
-//	{
-//		for (int j=0; j<grad_total.rows; j++)
-//		{
-//			sum += grad_total.at<cv::Vec3b>(i,j)[0];
-//		}
-//	}
-//	std::cout << sum << "\n";
-//
-//    // display histograms
-//	//cv::imshow("current image hist", hist_image_curr);
-//	//cv::imshow("previous image hist", hist_image_prev);
-//	cv::Mat image_hsv;
-//	// cv::cvtColor(current_image, image_hsv, CV_BGR2HSV);
-//    // cv::imshow("current_image_hsv", image_hsv);
-//    //cv::waitKey();
+	cv_bridge::CvImageConstPtr current_image_ptr;
+	cv::Mat current_image;
+	sensor_msgs::ImageConstPtr current_image_msg_ptr = boost::shared_ptr<sensor_msgs::Image const>(&(current_image_msg), voidDeleter);
+	convertColorImageMessageToMatAlt(current_image_msg_ptr, current_image_ptr, current_image);
+
+	// show current and previous image
+	//cv::imshow("current image alternative converter", current_image);
+	//cv::imshow("previous image alternative converter", previous_image);
+
+	// comparison, number of significantly changed pixels on resized images
+	// resize images to managable size
+	cv::Mat current_image_thumb;
+	cv::Mat previous_image_thumb;
+	float diff_pixels=0;
+	int diff_threshold = 10; //what is actually returned by at<cv::Vec3b>?
+
+	cv::resize(current_image, current_image_thumb, cv::Size(30,30));
+	cv::resize(previous_image, previous_image_thumb, cv::Size(30,30));
+
+	// pixel-wise comparison of images, add to diff_pixel if value at coordinate is changed by more than the set threshold
+	for (int i=0; i<current_image_thumb.cols; i++)
+	{
+		for (int j=0; j<current_image_thumb.rows; j++)
+		{
+			if (current_image_thumb.at<cv::Vec3b>(i,j)[0]-previous_image_thumb.at<cv::Vec3b>(i,j)[0] > diff_threshold || current_image_thumb.at<cv::Vec3b>(i,j)[0]-previous_image_thumb.at<cv::Vec3b>(i,j)[0] < -diff_threshold)
+			{
+				diff_pixels++;
+			}
+		}
+	}
+
+	// percentage of different pixels changed/total
+	float diff_pixels_perc = diff_pixels/225;
+
+	std::cout << "compared image percentage of pixels difference: " << diff_pixels_perc << "\n";
+
+	// comparison, euclidean distance of resized images
+	// (using same resized images as above)
+	double diff_sum=0;
+	for (int i=0; i<current_image_thumb.cols; i++)
+	{
+		for (int j=0; j<current_image_thumb.rows; j++)
+		{
+			diff_sum += (current_image_thumb.at<cv::Vec3b>(i,j)[0]-previous_image_thumb.at<cv::Vec3b>(i,j)[0]) ^ 2;
+		}
+	}
+	std::cout << "trying to get sqrt of this: " << diff_sum;
+
+	diff_sum = sqrt(diff_sum);
+	// todo: normalize this through total pixel number or max possible difference (pixels*max(diff between pixels))
+
+	std::cout << "compared image euclidean distance (not normalized)" << diff_sum << "\n";
+
+
+	// comparison, working on resized greyscale image
+	cv::Mat current_image_thumb_grey, previous_image_thumb_grey;
+	cv::cvtColor(current_image_thumb, current_image_thumb_grey, CV_BGR2GRAY);
+	cv::cvtColor(previous_image_thumb, previous_image_thumb_grey, CV_BGR2GRAY);
+
+//    cv::imshow("current image", current_image);
+//    cv::imshow("current image thumb", current_image_thumb);
+//    cv::imshow("current image thumb grey", current_image_thumb_grey);
+
+	// same pixel based tests as before
+	for (int i=0; i<current_image_thumb_grey.cols; i++)
+	{
+		for (int j=0; j<current_image_thumb_grey.rows; j++)
+		{
+			if (current_image_thumb_grey.at<cv::Vec3b>(i,j)[0]-previous_image_thumb_grey.at<cv::Vec3b>(i,j)[0] > diff_threshold || current_image_thumb_grey.at<cv::Vec3b>(i,j)[0]-previous_image_thumb_grey.at<cv::Vec3b>(i,j)[0] < -diff_threshold)
+			{
+				diff_pixels++;
+			}
+		}
+	}
+	diff_pixels_perc = diff_pixels/225;
+	std::cout << "compared grey image percentage of pixels difference: " << diff_pixels_perc << "\n";
+
+	diff_sum=0;
+	for (int i=0; i<current_image_thumb_grey.cols; i++)
+	{
+		for (int j=0; j<current_image_thumb_grey.rows; j++)
+		{
+			diff_sum += (current_image_thumb_grey.at<cv::Vec3b>(i,j)[0]-previous_image_thumb_grey.at<cv::Vec3b>(i,j)[0]) ^ 2;
+		}
+	}
+	std::cout << "trying to get sqrt of this: " << diff_sum;
+	diff_sum = sqrt(diff_sum);
+	std::cout << "compared grey image euclidean distance (not normalized)" << diff_sum << "\n";
+
+
+    // Set histogram bins count
+    int bins = 256;
+    int histSize[] = {bins};
+    // Set ranges for histogram bins
+    float lranges[] = {0, 256};
+    const float* ranges[] = {lranges};
+    // create matrix for histogram
+    cv::Mat hist_curr;
+    cv::Mat hist_prev;
+    int channels[] = {0};
+
+    // create matrix for histogram visualization
+    int const hist_height = 256;
+    cv::Mat3b hist_image_curr = cv::Mat3b::zeros(hist_height, bins);
+    cv::Mat3b hist_image_prev = cv::Mat3b::zeros(hist_height, bins);
+
+    cv::calcHist(&current_image_thumb_grey, 1, channels, cv::Mat(), hist_curr, 1, histSize, ranges, true, false);
+    cv::calcHist(&previous_image_thumb_grey, 1, channels, cv::Mat(), hist_prev, 1, histSize, ranges, true, false);
+
+    double max_val_curr=0, max_val_prev;
+    minMaxLoc(hist_curr, 0, &max_val_curr);
+    minMaxLoc(hist_prev, 0, &max_val_prev);
+
+    // visualize each bin
+    for(int b = 0; b < bins; b++)
+    {
+        float binVal = hist_curr.at<float>(b);
+        int height = cvRound(binVal*hist_height/max_val_curr);
+        cv::line
+            ( hist_image_curr
+            , cv::Point(b, hist_height-height), cv::Point(b, hist_height)
+            , cv::Scalar::all(255)
+            );
+        binVal = hist_prev.at<float>(b);
+        height = cvRound(binVal*hist_height/max_val_prev);
+        cv::line
+            ( hist_image_prev
+            , cv::Point(b, hist_height-height), cv::Point(b, hist_height)
+            , cv::Scalar::all(255)
+            );
+    }
+    // todo find out why compare hist crashed program, put comparison to work, normalize result if needed
+    // cv::compareHist(hist_image_curr, hist_image_prev, CV_COMP_CORREL);
+    // Methods for Histogram Comparison:
+    //    CV_COMP_CORREL Correlation
+    //    CV_COMP_CHISQR Chi-Square
+    //    CV_COMP_INTERSECT Intersection
+    //    CV_COMP_BHATTACHARYYA Bhattacharyya distance
+
+    // comparison, edge overlap scoring
+    // attempt to track detections through edge detection. This is an attempt at a simplified euclidian edge distance algorithm.
+    // previous image edges are expanded into thick greyscale zones, current image edges are laid over this, overlap accumulate greyscale "score" found in expanded border picture.
+    // final score is then compared to ideal score (exact edge match, 255 per edge pixel), it can be both lower and higher.
+
+    // to begin, let's try with the original image converted to greyscale, resizing the current image to match the previous (adding borders to the smaller image would probably be better?).
+
+    // in edge detection examples, blur is first applied to the source image to decrease noise.
+    // cv::GaussianBlur( src, src, Size(3,3), 0, 0, BORDER_DEFAULT );
+
+    cv::GaussianBlur( previous_image, previous_image, cv::Size(3,3), 0, 0, cv::BORDER_DEFAULT );
+    cv::resize(current_image,current_image,cv::Size(previous_image.rows, previous_image.cols));
+    cv::GaussianBlur( current_image, current_image, cv::Size(3,3), 0, 0, cv::BORDER_DEFAULT );
+
+	cv::Mat previous_image_grey, current_image_grey;
+	cv::cvtColor( previous_image, previous_image_grey, CV_RGB2GRAY );
+	cv::cvtColor(current_image, current_image_grey, CV_RGB2GRAY);
+
+    // sobel filtering copied over from http://docs.opencv.org/doc/tutorials/imgproc/imgtrans/sobel_derivatives/sobel_derivatives.html
+    // applied and displayed for previous image
+
+	/// Generate grad_x and grad_y
+	cv::Mat grad_x, grad_y;
+	cv::Mat abs_grad_x, abs_grad_y;
+	cv::Mat grad_prev, grad_curr, grad_total;
+	int scale = 1;
+	int delta = 0;
+	int ddepth = CV_16S;
+
+	/// Gradient X
+	//Scharr( src_gray, grad_x, ddepth, 1, 0, scale, delta, BORDER_DEFAULT );
+	cv::Sobel( previous_image_grey, grad_x, ddepth, 1, 0, 3, scale, delta, cv::BORDER_DEFAULT );
+	cv::convertScaleAbs( grad_x, abs_grad_x );
+
+	/// Gradient Y
+	//Scharr( src_gray, grad_y, ddepth, 0, 1, scale, delta, BORDER_DEFAULT );
+	cv::Sobel( previous_image_grey, grad_y, ddepth, 0, 1, 3, scale, delta, cv::BORDER_DEFAULT );
+	cv::convertScaleAbs( grad_y, abs_grad_y );
+
+	/// Total Gradient (approximate)
+	cv::addWeighted( abs_grad_x, 0.5, abs_grad_y, 0.5, 0, grad_prev );
+
+	//same for current img
+	/// Gradient X
+	//Scharr( src_gray, grad_x, ddepth, 1, 0, scale, delta, BORDER_DEFAULT );
+	cv::Sobel( current_image_grey, grad_x, ddepth, 1, 0, 3, scale, delta, cv::BORDER_DEFAULT );
+	cv::convertScaleAbs( grad_x, abs_grad_x );
+
+	/// Gradient Y
+	//Scharr( src_gray, grad_y, ddepth, 0, 1, scale, delta, BORDER_DEFAULT );
+	cv::Sobel( current_image_grey, grad_y, ddepth, 0, 1, 3, scale, delta, cv::BORDER_DEFAULT );
+	cv::convertScaleAbs( grad_y, abs_grad_y );
+
+	/// Total Gradient (approximate)
+	cv::addWeighted( abs_grad_x, 0.5, abs_grad_y, 0.5, 0, grad_curr );
+
+	//cv::imshow( "previous image edges", grad_prev );
+	//cv::imshow( "current image edges", grad_curr );
+
+	// remove current edges from previous edges and see what happens.
+	cv::subtract(grad_prev, grad_curr, grad_total );
+	//cv::imshow( "remainder of edge subtraction", grad_total);
+
+	//print sum of leftover pixel values
+	int sum=0;
+	for (int i=0; i<grad_total.cols; i++)
+	{
+		for (int j=0; j<grad_total.rows; j++)
+		{
+			sum += grad_total.at<cv::Vec3b>(i,j)[0];
+		}
+	}
+	std::cout << sum << "\n";
+
+    // display histograms
+	//cv::imshow("current image hist", hist_image_curr);
+	//cv::imshow("previous image hist", hist_image_prev);
+	cv::Mat image_hsv;
+	// cv::cvtColor(current_image, image_hsv, CV_BGR2HSV);
+    // cv::imshow("current_image_hsv", image_hsv);
+    //cv::waitKey();
 
 	double cppret = 0;
 	return cppret;
