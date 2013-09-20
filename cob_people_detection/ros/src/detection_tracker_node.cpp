@@ -368,52 +368,61 @@ double DetectionTrackerNode::computeFacePositionImageSimilarity(const sensor_msg
 	convertColorImageMessageToMatAlt(current_image_msg_ptr, current_image_ptr, current_image);
 
 	// show current and previous image
-	//cv::imshow("current image alternative converter", current_image);
-	//cv::imshow("previous image alternative converter", previous_image);
+	//cv::imshow("current image converter", current_image);
+	//cv::imshow("previous image converter", previous_image);
 
 	// comparison, number of significantly changed pixels on resized images
 	// resize images to managable size
 	cv::Mat current_image_thumb;
 	cv::Mat previous_image_thumb;
 	float diff_pixels=0;
-	int diff_threshold = 10; //what is actually returned by at<cv::Vec3b>?
+	int diff_threshold = 15; //what is actually returned by at<cv::Vec3b>?
 
-	cv::resize(current_image, current_image_thumb, cv::Size(30,30));
-	cv::resize(previous_image, previous_image_thumb, cv::Size(30,30));
+	cv::resize(current_image, current_image_thumb, cv::Size(current_image.rows/2,current_image.cols/2));
+	cv::resize(previous_image, previous_image_thumb, cv::Size(current_image.rows/2,current_image.cols/2));
 
+	cv::GaussianBlur(current_image_thumb, current_image_thumb, cv::Size(3,3), 0, 0, cv::BORDER_DEFAULT);
+	cv::GaussianBlur(previous_image_thumb, previous_image_thumb, cv::Size(3,3), 0, 0, cv::BORDER_DEFAULT);
+
+	int iterations=0;
 	// pixel-wise comparison of images, add to diff_pixel if value at coordinate is changed by more than the set threshold
 	for (int i=0; i<current_image_thumb.cols; i++)
 	{
 		for (int j=0; j<current_image_thumb.rows; j++)
 		{
-			if (current_image_thumb.at<cv::Vec3b>(i,j)[0]-previous_image_thumb.at<cv::Vec3b>(i,j)[0] > diff_threshold || current_image_thumb.at<cv::Vec3b>(i,j)[0]-previous_image_thumb.at<cv::Vec3b>(i,j)[0] < -diff_threshold)
+			for (int n=0; n<3; n++)
 			{
-				diff_pixels++;
+				iterations++;
+				if (current_image_thumb.at<cv::Vec3b>(i,j)[n]-previous_image_thumb.at<cv::Vec3b>(i,j)[n] > diff_threshold || current_image_thumb.at<cv::Vec3b>(i,j)[n]-previous_image_thumb.at<cv::Vec3b>(i,j)[n] < -diff_threshold)
+				{
+					diff_pixels++;
+					break;
+				}
 			}
 		}
 	}
-
+	std::cout << "went through this many iterations: " << iterations << " and found that many different pixels: " << diff_pixels << "\n";
 	// percentage of different pixels changed/total
-	float diff_pixels_perc = diff_pixels/225;
+	float diff_pixels_perc = diff_pixels/(iterations);
 
-	std::cout << "compared image percentage of pixels difference: " << diff_pixels_perc << "\n";
+	std::cout << "image percentage of pixels difference: " << diff_pixels_perc << "\n";
 
 	// comparison, euclidean distance of resized images
 	// (using same resized images as above)
-	double diff_sum=0;
+	int diff_sum=0;
 	for (int i=0; i<current_image_thumb.cols; i++)
 	{
 		for (int j=0; j<current_image_thumb.rows; j++)
 		{
-			diff_sum += (current_image_thumb.at<cv::Vec3b>(i,j)[0]-previous_image_thumb.at<cv::Vec3b>(i,j)[0]) ^ 2;
+			diff_sum = diff_sum + ( (current_image_thumb.at<cv::Vec3b>(i,j)[0]-previous_image_thumb.at<cv::Vec3b>(i,j)[0]) ^ 2);
 		}
 	}
-	std::cout << "trying to get sqrt of this: " << diff_sum;
-
-	diff_sum = sqrt(diff_sum);
+//	std::cout << "trying to get sqrt of this: " << diff_sum;
+//	double diff_sqrt;
+//	diff_sqrt = sqrt(diff_sum);
 	// todo: normalize this through total pixel number or max possible difference (pixels*max(diff between pixels))
 
-	std::cout << "compared image euclidean distance (not normalized)" << diff_sum << "\n";
+//	std::cout << "image euclidean distance (not normalized)" << diff_sum << "\n";
 
 
 	// comparison, working on resized greyscale image
@@ -422,10 +431,11 @@ double DetectionTrackerNode::computeFacePositionImageSimilarity(const sensor_msg
 	cv::cvtColor(previous_image_thumb, previous_image_thumb_grey, CV_BGR2GRAY);
 
 //    cv::imshow("current image", current_image);
-//    cv::imshow("current image thumb", current_image_thumb);
-//    cv::imshow("current image thumb grey", current_image_thumb_grey);
+    cv::imshow("current image thumb", current_image_thumb);
+    cv::imshow("previous image thumb", previous_image_thumb);
 
 	// same pixel based tests as before
+    diff_pixels=0;
 	for (int i=0; i<current_image_thumb_grey.cols; i++)
 	{
 		for (int j=0; j<current_image_thumb_grey.rows; j++)
@@ -436,20 +446,20 @@ double DetectionTrackerNode::computeFacePositionImageSimilarity(const sensor_msg
 			}
 		}
 	}
-	diff_pixels_perc = diff_pixels/225;
-	std::cout << "compared grey image percentage of pixels difference: " << diff_pixels_perc << "\n";
+	diff_pixels_perc = diff_pixels/(previous_image_thumb_grey.cols*current_image_thumb_grey.rows);
+	std::cout << "grey image percentage of pixels difference: " << diff_pixels_perc << "\n";
 
 	diff_sum=0;
 	for (int i=0; i<current_image_thumb_grey.cols; i++)
 	{
 		for (int j=0; j<current_image_thumb_grey.rows; j++)
 		{
-			diff_sum += (current_image_thumb_grey.at<cv::Vec3b>(i,j)[0]-previous_image_thumb_grey.at<cv::Vec3b>(i,j)[0]) ^ 2;
+			diff_sum = diff_sum + (current_image_thumb_grey.at<cv::Vec3b>(i,j)[0]-previous_image_thumb_grey.at<cv::Vec3b>(i,j)[0]) ^ 2;
 		}
 	}
-	std::cout << "trying to get sqrt of this: " << diff_sum;
-	diff_sum = sqrt(diff_sum);
-	std::cout << "compared grey image euclidean distance (not normalized)" << diff_sum << "\n";
+//	std::cout << "trying to get sqrt of this: " << diff_sum;
+//	diff_sqrt = sqrt(diff_sum);
+//	std::cout << "grey image euclidean distance (not normalized)" << diff_sqrt << "\n";
 
 
     // Set histogram bins count
@@ -686,6 +696,7 @@ void DetectionTrackerNode::inputCallback(const cob_people_detection_msgs::Detect
 			{
 				face_position_accumulator_.erase(face_position_accumulator_.begin()+i);
 				face_identification_votes_.erase(face_identification_votes_.begin()+i);
+				face_image_accumulator_.erase(face_image_accumulator_.begin()+i);
 			}
 		}
 		if (debug_)
@@ -834,6 +845,7 @@ void DetectionTrackerNode::inputCallback(const cob_people_detection_msgs::Detect
 			for (unsigned int i=0; i<face_detection_indices.size(); i++)
 			{
 				//rmb-ss, added + computeFacePositionImageSimilarity
+				std::cout << "now comparing previous " << face_position_accumulator_[previous_det].label << " and " << face_position_msg_in->detections[face_detection_indices[i]].label << "\n";
 //				costs_matrix[previous_det][i] = 100*computeFacePositionDistance(face_position_accumulator_[previous_det], face_position_msg_in->detections[face_detection_indices[i]])
 //												+ 100*tracking_range_m_ * (face_position_msg_in->detections[face_detection_indices[i]].label.compare(face_position_accumulator_[previous_det].label)==0 ? 0 : 1);
 //				costs_matrix[previous_det][i] = 100*computeFacePositionDistance(face_position_accumulator_[previous_det], face_position_msg_in->detections[face_detection_indices[i]])
