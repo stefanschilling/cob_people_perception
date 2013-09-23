@@ -128,6 +128,7 @@ protected:
 	std::vector<sensor_msgs::Image> face_image_accumulator_; // accumulates face images over time
 	std::vector<cob_people_detection_msgs::ColorDepthImage> face_image_array_accumulator_; // accumulates face images over time
 	std::vector<cob_people_detection_msgs::ColorDepthImageArray> face_image_array_accumulator2_; // accumulates face images over time
+
 	//end rmb-ss
 
 	ros::Publisher face_position_publisher_; ///< publisher for the positions of the detected faces
@@ -182,6 +183,11 @@ public:
 	//new stuff rmb-ss
 	double computeFacePositionImageSimilarity(const sensor_msgs::Image& previous_image_msg, const sensor_msgs::Image& current_image_msg);
 	unsigned long convertColorImageMessageToMatAlt(const sensor_msgs::Image::ConstPtr& image_msg, cv_bridge::CvImageConstPtr& image_ptr, cv::Mat& image);
+
+	unsigned long CutImage(cv::Mat& curr, cv::Mat& prev, int dec_x, int dec_y);
+	unsigned long PadImage(cv::Mat& curr, cv::Mat& prev, int inc_x, int inc_y);
+	unsigned long PixelSimilarity(cv::Mat curr, cv::Mat prev, int threshold, float& diff_perc, int channels=1);
+	void OLBP_(cv::Mat& src, cv::Mat& dst);
 	//end new stuff rmb-ss
 
 	/// Removes multiple instances of a label by renaming the detections with lower score to Unknown.
