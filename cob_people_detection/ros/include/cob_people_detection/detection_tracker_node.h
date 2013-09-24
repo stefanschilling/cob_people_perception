@@ -187,6 +187,7 @@ public:
 	unsigned long CutImage(cv::Mat& curr, cv::Mat& prev, int dec_x, int dec_y);
 	unsigned long PadImage(cv::Mat& curr, cv::Mat& prev, int inc_x, int inc_y);
 	unsigned long PixelSimilarity(cv::Mat curr, cv::Mat prev, int threshold, float& diff_perc, int channels=1);
+	unsigned long PixelEuclidianDistance(cv::Mat curr, cv::Mat prev, int& distance, int channels=1);
 	void OLBP_(cv::Mat& src, cv::Mat& dst);
 	//end new stuff rmb-ss
 

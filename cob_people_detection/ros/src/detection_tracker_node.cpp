@@ -356,8 +356,7 @@ double DetectionTrackerNode::computeFacePositionImageSimilarity(const sensor_msg
 {
 	float diff_pixels_perc=0;
 	int diff_threshold = 16;
-	int inc_x = 0, inc_y = 0;
-	int diff_sum=0;
+	int distance;
 	cv_bridge::CvImageConstPtr previous_image_ptr;
 	cv::Mat previous_image;
 	cv_bridge::CvImageConstPtr current_image_ptr;
@@ -381,23 +380,13 @@ double DetectionTrackerNode::computeFacePositionImageSimilarity(const sensor_msg
 
 	cv::resize(current_image, current_image_thumb, cv::Size(current_image.rows/2,current_image.cols/2));
 	cv::resize(previous_image, previous_image_thumb, cv::Size(current_image.rows/2,current_image.cols/2));
+	cv::GaussianBlur(current_image_thumb, current_image_thumb, cv::Size(5,5), 0, 0, cv::BORDER_DEFAULT);
+	cv::GaussianBlur(current_image_thumb, current_image_thumb, cv::Size(5,5), 0, 0, cv::BORDER_DEFAULT);
+	cv::GaussianBlur(previous_image_thumb, previous_image_thumb, cv::Size(5,5), 0, 0, cv::BORDER_DEFAULT);
+	cv::GaussianBlur(previous_image_thumb, previous_image_thumb, cv::Size(5,5), 0, 0, cv::BORDER_DEFAULT);
 
-	cv::GaussianBlur(current_image_thumb, current_image_thumb, cv::Size(5,5), 0, 0, cv::BORDER_DEFAULT);
-	cv::GaussianBlur(current_image_thumb, current_image_thumb, cv::Size(5,5), 0, 0, cv::BORDER_DEFAULT);
-	cv::GaussianBlur(previous_image_thumb, previous_image_thumb, cv::Size(5,5), 0, 0, cv::BORDER_DEFAULT);
-	cv::GaussianBlur(previous_image_thumb, previous_image_thumb, cv::Size(5,5), 0, 0, cv::BORDER_DEFAULT);
 	PixelSimilarity(current_image_thumb, previous_image_thumb, diff_threshold, diff_pixels_perc, 3);
 	std::cout << "blurred thumb percentage difference: " << diff_pixels_perc << "\n";
-
-	// comparison, euclidean distance of resized images
-	// (using same resized images as above)
-	for (int i=0; i<current_image_thumb.cols; i++)
-	{
-		for (int j=0; j<current_image_thumb.rows; j++)
-		{
-			diff_sum = diff_sum + ( (current_image_thumb.at<cv::Vec3b>(i,j)[0]-previous_image_thumb.at<cv::Vec3b>(i,j)[0]) ^ 2);
-		}
-	}
 
 	// comparison, working on resized greyscale image
 	cv::cvtColor(current_image_thumb, current_image_grey, CV_BGR2GRAY);
@@ -408,23 +397,15 @@ double DetectionTrackerNode::computeFacePositionImageSimilarity(const sensor_msg
 	PixelSimilarity(current_image_grey, previous_image_grey, diff_threshold, diff_pixels_perc);
 	std::cout << "greyscale percentage difference: " << diff_pixels_perc << "\n";
 
-	diff_sum=0;
-	for (int i=0; i<current_image_thumb.cols; i++)
-	{
-		for (int j=0; j<current_image_thumb.rows; j++)
-		{
-			diff_sum = diff_sum + (current_image_thumb.at<cv::Vec3b>(i,j)[0]-previous_image_thumb.at<cv::Vec3b>(i,j)[0]) ^ 2;
-		}
-	}
 	cv::Mat current_image_olbp;
 	cv::Mat previous_image_olbp;
 	OLBP_(current_image_grey, current_image_olbp);
 	OLBP_(previous_image_grey, previous_image_olbp);
 	cv::imshow("OLBP Test",current_image_olbp);
 	cv::imshow("OLBP Test 2", previous_image_olbp);
+
 	PixelSimilarity(current_image_olbp, previous_image_olbp, diff_threshold, diff_pixels_perc);
 	std::cout << "olbp percentage difference: " << diff_pixels_perc << "\n";
-
 
 	cv::Mat curr_cut = current_image;
 	cv::Mat prev_cut = previous_image;
@@ -435,7 +416,6 @@ double DetectionTrackerNode::computeFacePositionImageSimilarity(const sensor_msg
 
 	cv::resize(curr_cut, curr_cut, cv::Size(curr_cut.rows/2,curr_cut.cols/2));
 	cv::resize(prev_cut, prev_cut, cv::Size(prev_cut.rows/2,prev_cut.cols/2));
-
 	cv::GaussianBlur(curr_cut, curr_cut, cv::Size(5,5), 0, 0, cv::BORDER_DEFAULT);
 	cv::GaussianBlur(curr_cut, curr_cut, cv::Size(5,5), 0, 0, cv::BORDER_DEFAULT);
 	cv::GaussianBlur(prev_cut, prev_cut, cv::Size(5,5), 0, 0, cv::BORDER_DEFAULT);
@@ -443,6 +423,9 @@ double DetectionTrackerNode::computeFacePositionImageSimilarity(const sensor_msg
 
 	PixelSimilarity(curr_cut, prev_cut, diff_threshold, diff_pixels_perc);
 	std::cout << "cut color percentage difference: " << diff_pixels_perc << "\n";
+
+	PixelEuclidianDistance(curr_cut, prev_cut, distance, 3);
+	std::cout << "cut color euclidian distance: " << distance << "\n";
 	// comparison, working on padded images, borders added to match images in size
 //	inc_x = current_image.cols - previous_image.cols;
 //	inc_y = current_image.rows - previous_image.rows;
@@ -569,6 +552,37 @@ unsigned long DetectionTrackerNode::PixelSimilarity(cv::Mat curr, cv::Mat prev, 
 
 	//std::cout << " number of pixels: " << prev.cols*prev.rows << "went through this many iterations: " << iterations << " and found that many different pixels: " << diff_pixels <<  "\n";
 	//std::cout << "diff perc in function: " <<  diff_perc << "\n";
+	return ipa_Utils::RET_OK;
+}
+
+unsigned long DetectionTrackerNode::PixelEuclidianDistance(cv::Mat curr, cv::Mat prev, int& distance, int chans)
+{
+	distance =0;
+	int b1,b2;
+	cv::Vec3b intensity1, intensity2;
+	for (int i=0; i<curr.cols; i++)
+	{
+		for (int j=0; j<curr.rows; j++)
+		{
+			for (int n=0; n<chans; n++)
+			{
+				b1 = curr.at<cv::Vec3b>(i, j)[n];
+				b2 = prev.at<cv::Vec3b>(i, j)[n];
+
+				//std::cout << b1 << " - " << b2 <<"\n";
+
+				distance += (b1 - b2)*(b1-b2);
+				//std::cout << "b1 - b2 : " << b1 << "-" <<b2 << "=" << distance << "\n";
+				if (distance > 100000000)
+				{
+					std::cout << " ouch - ran over 100m ";
+					distance = 20000;
+					return ipa_Utils::RET_OK;
+				}
+			}
+		}
+	}
+	distance = sqrt(distance);
 	return ipa_Utils::RET_OK;
 }
 
