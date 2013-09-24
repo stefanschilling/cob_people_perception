@@ -366,7 +366,7 @@ double DetectionTrackerNode::computeFacePositionImageSimilarity(const sensor_msg
 	cv::Mat current_image_thumb, previous_image_thumb;
 	cv::Mat current_image_grey, previous_image_grey;
 	cv::Mat previous_image_hsv, current_image_hsv;
-	cv::Mat current_image_cut, previous_image_cut;
+	cv::Mat current_image_roi, previous_image_roi;
 
 	// convert old and current image to cvmats using alternative image converter (preserves image encoding of message)
 
@@ -425,6 +425,7 @@ double DetectionTrackerNode::computeFacePositionImageSimilarity(const sensor_msg
 	PixelSimilarity(current_image_olbp, previous_image_olbp, diff_threshold, diff_pixels_perc);
 	std::cout << "olbp percentage difference: " << diff_pixels_perc << "\n";
 
+
 	cv::Mat curr_cut = current_image;
 	cv::Mat prev_cut = previous_image;
 	int dec_x, dec_y;
@@ -432,7 +433,16 @@ double DetectionTrackerNode::computeFacePositionImageSimilarity(const sensor_msg
 	dec_y = curr_cut.rows-prev_cut.rows;
 	CutImage(curr_cut, prev_cut, dec_x, dec_y);
 
+	cv::resize(curr_cut, curr_cut, cv::Size(curr_cut.rows/2,curr_cut.cols/2));
+	cv::resize(prev_cut, prev_cut, cv::Size(prev_cut.rows/2,prev_cut.cols/2));
 
+	cv::GaussianBlur(curr_cut, curr_cut, cv::Size(5,5), 0, 0, cv::BORDER_DEFAULT);
+	cv::GaussianBlur(curr_cut, curr_cut, cv::Size(5,5), 0, 0, cv::BORDER_DEFAULT);
+	cv::GaussianBlur(prev_cut, prev_cut, cv::Size(5,5), 0, 0, cv::BORDER_DEFAULT);
+	cv::GaussianBlur(prev_cut, prev_cut, cv::Size(5,5), 0, 0, cv::BORDER_DEFAULT);
+
+	PixelSimilarity(curr_cut, prev_cut, diff_threshold, diff_pixels_perc);
+	std::cout << "cut color percentage difference: " << diff_pixels_perc << "\n";
 	// comparison, working on padded images, borders added to match images in size
 //	inc_x = current_image.cols - previous_image.cols;
 //	inc_y = current_image.rows - previous_image.rows;
@@ -557,7 +567,7 @@ unsigned long DetectionTrackerNode::PixelSimilarity(cv::Mat curr, cv::Mat prev, 
 	// percentage of different pixels changed/total
 	diff_perc = diff_pixels/(prev.cols*prev.rows);
 
-	std::cout << " number of pixels: " << prev.cols*prev.rows << "went through this many iterations: " << iterations << " and found that many different pixels: " << diff_pixels <<  "\n";
+	//std::cout << " number of pixels: " << prev.cols*prev.rows << "went through this many iterations: " << iterations << " and found that many different pixels: " << diff_pixels <<  "\n";
 	//std::cout << "diff perc in function: " <<  diff_perc << "\n";
 	return ipa_Utils::RET_OK;
 }
@@ -590,7 +600,7 @@ unsigned long DetectionTrackerNode::CutImage(cv::Mat& curr, cv::Mat& prev, int d
 	if (dec_x >= 0)
 	{
 		a=dec_x/2+5;
-		c=curr.cols-dec_x/2-5;
+		c=curr.cols-dec_x-5;
 		w=5;
 		y=prev.cols-5;
 	}
@@ -599,12 +609,12 @@ unsigned long DetectionTrackerNode::CutImage(cv::Mat& curr, cv::Mat& prev, int d
 		a=5;
 		c=curr.cols-5;
 		w=5-dec_x/2;
-		y=prev.cols-5+dec_x/2;
+		y=prev.cols-5+dec_x;
 	}
 	if (dec_y >=0)
 	{
 		b=dec_y/2+5;
-		d=curr.rows-dec_y/2-5;
+		d=curr.rows-dec_y-5;
 		x=5;
 		z=prev.rows-5;
 	}
@@ -613,18 +623,15 @@ unsigned long DetectionTrackerNode::CutImage(cv::Mat& curr, cv::Mat& prev, int d
 		b=5;
 		d=curr.rows-5;
 		x=5-dec_y/2;
-		z=prev.rows-5+dec_y/2;
+		z=prev.rows-5+dec_y;
 	}
 	cv::Rect currRoi(a,b,c,d);
 	cv::Rect prevRoi(w,x,y,z);
 
-	std::cout << "cut image produced the following ROIs" << "\n";
-	std::cout << currRoi << " | " << prevRoi << "\n";
-	std::cout << "curr size: " << curr.cols << "x" << curr.rows << "\n";
-	std::cout << "prev size: " << prev.cols << "x" << prev.rows << "\n";
-	//curr = curr(currRoi);
-	//prev = prev(prevRoi);
+	curr = curr(currRoi);
+	prev = prev(prevRoi);
 
+	return ipa_Utils::RET_OK;
 }
 
 
@@ -880,9 +887,6 @@ void DetectionTrackerNode::inputCallback(const cob_people_detection_msgs::Detect
 				std::cout << "now comparing previous " << face_position_accumulator_[previous_det].label << " and " << face_position_msg_in->detections[face_detection_indices[i]].label << "\n";
 //				costs_matrix[previous_det][i] = 100*computeFacePositionDistance(face_position_accumulator_[previous_det], face_position_msg_in->detections[face_detection_indices[i]])
 //												+ 100*tracking_range_m_ * (face_position_msg_in->detections[face_detection_indices[i]].label.compare(face_position_accumulator_[previous_det].label)==0 ? 0 : 1);
-//				costs_matrix[previous_det][i] = 100*computeFacePositionDistance(face_position_accumulator_[previous_det], face_position_msg_in->detections[face_detection_indices[i]])
-//																+ 100*tracking_range_m_ * (face_position_msg_in->detections[face_detection_indices[i]].label.compare(face_position_accumulator_[previous_det].label)==0 ? 0 : 1)
-//																+ computeFacePositionImageSimilarity(face_image_array_accumulator2_[previous_det].head_detections[previous_det].color_image, face_image_msg_in->head_detections[i].color_image);
 				costs_matrix[previous_det][i] = 100*computeFacePositionDistance(face_position_accumulator_[previous_det], face_position_msg_in->detections[face_detection_indices[i]])
 																				+ 100*tracking_range_m_ * (face_position_msg_in->detections[face_detection_indices[i]].label.compare(face_position_accumulator_[previous_det].label)==0 ? 0 : 1)
 																				+ computeFacePositionImageSimilarity(face_image_accumulator_[previous_det], face_image_msg_in->head_detections[i].color_image);
@@ -929,6 +933,10 @@ void DetectionTrackerNode::inputCallback(const cob_people_detection_msgs::Detect
 				for (unsigned int i=0; i<face_detection_indices.size(); i++)
 					if (face_detection_indices[i] == current_match_index)
 						current_detection_has_matching[i] = true;
+
+						// rmb-ss aktualisiere previous image mit neuem match
+						face_image_accumulator_[previous_match_index]=face_image_msg_in->head_detections[current_match_index].color_image;
+						// end rmb-ss
 			}
 
 			delete optimalAssignment;
