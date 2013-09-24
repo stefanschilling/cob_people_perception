@@ -426,6 +426,30 @@ double DetectionTrackerNode::computeFacePositionImageSimilarity(const sensor_msg
 
 	PixelEuclidianDistance(curr_cut, prev_cut, distance, 3);
 	std::cout << "cut color euclidian distance: " << distance << "\n";
+
+	// fill histrogramvector with histograms of face regions. regions are square, number of regions must be a squared int.
+	// histogramvect_ then is filled with image 1 and 2 histograms of regions, ie:
+	//	1 	2 	3
+	// 	4 	5 	6	current
+	// 	7 	8 	9
+	//	10	11	12
+	// 	13	14	15	previous
+	//	16	17	18
+
+	//TODO: weighted comparison of histograms.
+	// cv::compareHist(hist_image_curr, hist_image_prev, CV_COMP_CORREL);
+	// Methods for Histogram Comparison:
+	//    CV_COMP_CORREL Correlation
+	//    CV_COMP_CHISQR Chi-Square
+	//    CV_COMP_INTERSECT Intersection
+	//    CV_COMP_BHATTACHARYYA Bhattacharyya distance
+	OLBPHistogram(current_image_olbp, 16);
+	OLBPHistogram(previous_image_olbp, 16);
+
+	double comptest = cv::compareHist(histogramvect_[5], histogramvect_[22], CV_COMP_CORREL);
+	std::cout << "comparehist stuff muahaha " << comptest << "\n";
+	histogramvect_.clear();
+
 	// comparison, working on padded images, borders added to match images in size
 //	inc_x = current_image.cols - previous_image.cols;
 //	inc_y = current_image.rows - previous_image.rows;
@@ -446,55 +470,6 @@ double DetectionTrackerNode::computeFacePositionImageSimilarity(const sensor_msg
 //	diff_pixels_perc=0;
 //	PixelSimilarity(current_image, previous_image, diff_threshold, diff_pixels_perc, 2);
 //	std::cout << "hsv 2 channel difference: " << diff_pixels_perc << "\n";
-
-    // Set histogram bins count
-    int bins = 32;
-    int histSize[] = {bins};
-    // Set ranges for histogram bins
-    float lranges[] = {0, 256};
-    const float* ranges[] = {lranges};
-    // create matrix for histogram
-    cv::Mat hist_curr;
-    cv::Mat hist_prev;
-    int channels[] = {0};
-
-    // create matrix for histogram visualization
-    int const hist_height = 256;
-    cv::Mat3b hist_image_curr = cv::Mat3b::zeros(hist_height, bins);
-    cv::Mat3b hist_image_prev = cv::Mat3b::zeros(hist_height, bins);
-
-    cv::calcHist(&current_image_thumb, 1, channels, cv::Mat(), hist_curr, 1, histSize, ranges, true, false);
-    cv::calcHist(&previous_image_thumb, 1, channels, cv::Mat(), hist_prev, 1, histSize, ranges, true, false);
-
-    double max_val_curr=0, max_val_prev;
-    minMaxLoc(hist_curr, 0, &max_val_curr);
-    minMaxLoc(hist_prev, 0, &max_val_prev);
-
-    // visualize each bin
-    for(int b = 0; b < bins; b++)
-    {
-        float binVal = hist_curr.at<float>(b);
-        int height = cvRound(binVal*hist_height/max_val_curr);
-        cv::line
-            ( hist_image_curr
-            , cv::Point(b, hist_height-height), cv::Point(b, hist_height)
-            , cv::Scalar::all(255)
-            );
-        binVal = hist_prev.at<float>(b);
-        height = cvRound(binVal*hist_height/max_val_prev);
-        cv::line
-            ( hist_image_prev
-            , cv::Point(b, hist_height-height), cv::Point(b, hist_height)
-            , cv::Scalar::all(255)
-            );
-    }
-    // todo find out why compare hist crashed program, put comparison to work, normalize result if needed
-    // cv::compareHist(hist_image_curr, hist_image_prev, CV_COMP_CORREL);
-    // Methods for Histogram Comparison:
-    //    CV_COMP_CORREL Correlation
-    //    CV_COMP_CHISQR Chi-Square
-    //    CV_COMP_INTERSECT Intersection
-    //    CV_COMP_BHATTACHARYYA Bhattacharyya distance
 
 	double cppret = 0;
 	return cppret;
@@ -605,6 +580,39 @@ void DetectionTrackerNode::OLBP_(cv::Mat& src, cv::Mat& dst)
             dst.at<unsigned char>(i-1,j-1) = code;
         }
     }
+}
+
+unsigned long DetectionTrackerNode::OLBPHistogram(cv::Mat src, int regions)
+{
+	// Set histogram bins count
+	int bins = 16;
+	int histSize[] = {bins};
+	// Set ranges for histogram bins
+	float lranges[] = {0, 256};
+	const float* ranges[] = {lranges};
+	// create matrix for histogram
+	cv::Mat hist;
+	cv::Mat src_roi;
+	int channels[] = {0};
+
+	// create matrix for histogram visualization
+	cv::Rect roi;
+	int x = sqrt(regions);
+	int width = src.cols/x;
+	for (int i =0; i<x; i++)
+	{
+		for (int j=0; j<x; j++)
+		{
+			roi = cv::Rect(width*i, width*j, width, width);
+			src_roi = src(roi);
+			cv::calcHist(&src_roi, 1, channels, cv::Mat(), hist, 1, histSize, ranges, true, false);
+			histogramvect_.push_back(hist);
+			//std::cout << histogramvect_.size() << "\n";
+		}
+	}
+
+
+	return ipa_Utils::RET_OK;
 }
 
 unsigned long DetectionTrackerNode::CutImage(cv::Mat& curr, cv::Mat& prev, int dec_x, int dec_y)

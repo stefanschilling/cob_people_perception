@@ -128,7 +128,7 @@ protected:
 	std::vector<sensor_msgs::Image> face_image_accumulator_; // accumulates face images over time
 	std::vector<cob_people_detection_msgs::ColorDepthImage> face_image_array_accumulator_; // accumulates face images over time
 	std::vector<cob_people_detection_msgs::ColorDepthImageArray> face_image_array_accumulator2_; // accumulates face images over time
-
+	std::vector<cv::Mat> histogramvect_;
 	//end rmb-ss
 
 	ros::Publisher face_position_publisher_; ///< publisher for the positions of the detected faces
@@ -188,6 +188,7 @@ public:
 	unsigned long PadImage(cv::Mat& curr, cv::Mat& prev, int inc_x, int inc_y);
 	unsigned long PixelSimilarity(cv::Mat curr, cv::Mat prev, int threshold, float& diff_perc, int channels=1);
 	unsigned long PixelEuclidianDistance(cv::Mat curr, cv::Mat prev, int& distance, int channels=1);
+	unsigned long OLBPHistogram(cv::Mat src, int regions);
 	void OLBP_(cv::Mat& src, cv::Mat& dst);
 	//end new stuff rmb-ss
 
