@@ -447,7 +447,7 @@ double DetectionTrackerNode::computeFacePositionImageSimilarity(const sensor_msg
 	OLBPHistogram(previous_image_olbp, 16);
 
 	double comptest = cv::compareHist(histogramvect_[5], histogramvect_[22], CV_COMP_CORREL);
-	std::cout << "comparehist stuff muahaha " << comptest << "\n";
+	std::cout << "Result of sample comparison on region 5 of images: " << comptest << "\n";
 	histogramvect_.clear();
 
 	// comparison, working on padded images, borders added to match images in size
