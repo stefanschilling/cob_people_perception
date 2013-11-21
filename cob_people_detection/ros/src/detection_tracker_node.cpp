@@ -408,6 +408,8 @@ double DetectionTrackerNode::computeFacePositionImageSimilarity(const sensor_msg
 
 	cv::resize(current_image, current_image_thumb, cv::Size(current_image.rows/2,current_image.cols/2));
 	cv::resize(previous_image, previous_image_thumb, cv::Size(current_image.rows/2,current_image.cols/2));
+
+	std::cout << "size of images after resizing: " << current_image.rows/2 << " x " << current_image.cols/2 << "\n";
 	//cv::GaussianBlur(current_image_thumb, current_image_thumb, cv::Size(5,5), 0, 0, cv::BORDER_DEFAULT);
 	//cv::GaussianBlur(current_image_thumb, current_image_thumb, cv::Size(5,5), 0, 0, cv::BORDER_DEFAULT);
 	//cv::GaussianBlur(previous_image_thumb, previous_image_thumb, cv::Size(5,5), 0, 0, cv::BORDER_DEFAULT);
@@ -440,10 +442,10 @@ double DetectionTrackerNode::computeFacePositionImageSimilarity(const sensor_msg
 	int dec_x, dec_y;
 	dec_x = curr_cut.cols-prev_cut.cols;
 	dec_y = curr_cut.rows-prev_cut.rows;
-	CutImage(curr_cut, prev_cut, dec_x, dec_y);
+	//CutImage(curr_cut, prev_cut, dec_x, dec_y);
 
-	cv::resize(curr_cut, curr_cut, cv::Size(curr_cut.rows/2,curr_cut.cols/2));
-	cv::resize(prev_cut, prev_cut, cv::Size(prev_cut.rows/2,prev_cut.cols/2));
+	//cv::resize(curr_cut, curr_cut, cv::Size(curr_cut.rows/2,curr_cut.cols/2));
+	//cv::resize(prev_cut, prev_cut, cv::Size(prev_cut.rows/2,prev_cut.cols/2));
 	//cv::GaussianBlur(curr_cut, curr_cut, cv::Size(5,5), 0, 0, cv::BORDER_DEFAULT);
 	//cv::GaussianBlur(curr_cut, curr_cut, cv::Size(5,5), 0, 0, cv::BORDER_DEFAULT);
 	//cv::GaussianBlur(prev_cut, prev_cut, cv::Size(5,5), 0, 0, cv::BORDER_DEFAULT);
