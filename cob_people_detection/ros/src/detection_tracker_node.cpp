@@ -409,7 +409,7 @@ double DetectionTrackerNode::computeFacePositionImageSimilarity(const sensor_msg
 	cv::resize(current_image, current_image_thumb, cv::Size(current_image.rows/2,current_image.cols/2));
 	cv::resize(previous_image, previous_image_thumb, cv::Size(current_image.rows/2,current_image.cols/2));
 
-	std::cout << "size of images after resizing: " << current_image.rows/2 << " x " << current_image.cols/2 << "\n";
+	//std::cout << "size of images after resizing: " << current_image.rows/2 << " x " << current_image.cols/2 << "\n";
 	//cv::GaussianBlur(current_image_thumb, current_image_thumb, cv::Size(5,5), 0, 0, cv::BORDER_DEFAULT);
 	//cv::GaussianBlur(current_image_thumb, current_image_thumb, cv::Size(5,5), 0, 0, cv::BORDER_DEFAULT);
 	//cv::GaussianBlur(previous_image_thumb, previous_image_thumb, cv::Size(5,5), 0, 0, cv::BORDER_DEFAULT);
@@ -458,7 +458,7 @@ double DetectionTrackerNode::computeFacePositionImageSimilarity(const sensor_msg
 	//std::cout << "cut color euclidian distance: " << distance << "\n";
 
 	// fill histrogramvector with histograms of face regions. regions are square, number of regions must be a squared int.
-	// histogramvect_ then is filled with image 1 and 2 histograms of regions, ie:
+	// histogramvect_ then is filled with image 1 and 2 histograms of regions, i.e.:
 	//	1 	2 	3
 	// 	4 	5 	6	current
 	// 	7 	8 	9
@@ -477,20 +477,29 @@ double DetectionTrackerNode::computeFacePositionImageSimilarity(const sensor_msg
 	OLBPHistogram(previous_image_olbp, 16);
 
 	// defining weights for histogram regions in three pyramid layers
-	int olbp_base_weight [] = {1, 2, 2, 1, 2, 4, 4, 2, 2, 4, 4, 2, 1, 2, 2, 1};
-	int olbp_mid_weight [] = {1, 2, 1, 2, 4, 2, 1, 2, 1};
-	int oldpb_top_weight [] = {1, 1, 1, 1};
+	int base_weight [] = {1, 3, 3, 1, 3, 8, 8, 3, 3, 8, 8, 3, 1, 3, 3, 1};
+	int mid_weight [] = {1, 4, 1, 4, 8, 4, 1, 4, 1};
+	int top_weight [] = {4, 4, 4, 4};
 
-	for (int i=0; i<25; i++)
+	for (int i=0; i<16; i++)
 	{
-		histocomp_temp += cv::compareHist(histogramvect_[i], histogramvect_[i+25], CV_COMP_CORREL);
+		histocomp_temp += base_weight[i] * cv::compareHist(histogramvect_[i], histogramvect_[i+29], CV_COMP_CORREL);
 		//std::cout << "histcomp_temp: " << histocomp_temp << "\n";
 	}
 
-	//Output of sum to check correct use. Correlation: 0-1, 1 is full match. Expected value: 0 - number of regions
-	//std::cout << "sum of compareHist results " << histocomp_temp << "\n";
-	double histocomp_res = histocomp_temp / 25;
-	std::cout << "divided by number of regions: " << histocomp_res << "\n";
+	for (int i=16; i<25; i++)
+	{
+		histocomp_temp += mid_weight[i-16] * cv::compareHist(histogramvect_[i], histogramvect_[i+29], CV_COMP_CORREL);
+	}
+
+	for (int i=25; i<29; i++)
+	{
+		histocomp_temp += top_weight[i-25] * cv::compareHist(histogramvect_[i], histogramvect_[i+29], CV_COMP_CORREL);
+	}
+
+	// Divide result by sum of weights to receive normalized correlation.
+	double histocomp_res = histocomp_temp / 104;
+	//std::cout << "divided by number of regions: " << histocomp_res << "\n";
 	histogramvect_.clear();
 
 	// comparison, working on padded images, borders added to match images in size
@@ -626,10 +635,13 @@ void DetectionTrackerNode::OLBP_(cv::Mat& src, cv::Mat& dst)
     }
 }
 
+// Binary Pattern
+// Calculate histograms of regions in the src Mat.
+// Fill histogramvect_ with resulting histograms.
 unsigned long DetectionTrackerNode::OLBPHistogram(cv::Mat src, int regions)
 {
 	// Set histogram bins count
-	int bins = 16;
+	int bins = 64;
 	int histSize[] = {bins};
 	// Set ranges for histogram bins
 	float lranges[] = {0, 256};
@@ -641,33 +653,14 @@ unsigned long DetectionTrackerNode::OLBPHistogram(cv::Mat src, int regions)
 
 	// calculate histogram over image, equally divided into regions
 	// 3 layers: base, mid, top. 4x4, 3x3, 2x2.
-	// top layer identical to middle 2x2 of 4x4
 	cv::Rect roi;
 	int x = sqrt(regions);
-	int width_base = src.cols/x;
-	int width_mid = (src.cols - 2/3*width_base) / (x-1);
-	int width_top = (src.cols - 2/3*width_base - 2/3*width_mid) / (x-2);
+	int width_base = src.cols/x;;
+	int width_mid = ((src.cols - 2*width_base/3) / (x-1));
+	int width_top = ((src.cols - 2*width_base/3 - 2*width_mid/3) / (x-2));
 
-	std::cout << "Pyramid ROI sizes - Base: " << width_base << " Mid: " << width_mid << " Top: " << width_top << "\n";
-	for (int h = 0; h<2; h++)
-	{
-		int width = (src.cols - h*width_base)/(x-h);
-		for (int i =0; i<(x-h); i++)
-		{
-			for (int j=0; j<(x-h); j++)
-			{
-				roi = cv::Rect((width*i+h*width/2), (width*j+h*width/2), width, width);
-				src_roi = src(roi);
-				cv::calcHist(&src_roi, 1, channels, cv::Mat(), hist, 1, histSize, ranges, true, false);
-				histogramvect_.push_back(hist);
-				//std::cout << histogramvect_.size() << "\n";
-			}
-		}
-		std::cout << "histogramvect_ size after " << h+1 << " iterations: " << histogramvect_.size() << "\n";
-	}
-	histogramvect_.clear();
-	std::cout << "cleared histogramvect, refilling it with easy-read version to check functionality \n";
-	// easy to read version:
+	//std::cout << "Pyramid ROI sizes - Base: " << width_base << " Mid: " << width_mid << " Top: " << width_top << "\n";
+
 	// base layer
 	for (int i =0; i<x; i++)
 	{
@@ -679,7 +672,7 @@ unsigned long DetectionTrackerNode::OLBPHistogram(cv::Mat src, int regions)
 			histogramvect_.push_back(hist);
 		}
 	}
-	std::cout << "histogramvect_ size after base layer: " << histogramvect_.size() << "\n";
+	//std::cout << "histogramvect_ size after base layer: " << histogramvect_.size() << "\n";
 
 	// middle layer
 	for (int i =0; i<x-1; i++)
@@ -692,7 +685,7 @@ unsigned long DetectionTrackerNode::OLBPHistogram(cv::Mat src, int regions)
 			histogramvect_.push_back(hist);
 		}
 	}
-	std::cout << "histogramvect_ size after mid layer: " << histogramvect_.size() << "\n";
+	//std::cout << "histogramvect_ size after mid layer: " << histogramvect_.size() << "\n";
 
 	// top layer
 	for (int i =0; i<x-2; i++)
@@ -705,7 +698,7 @@ unsigned long DetectionTrackerNode::OLBPHistogram(cv::Mat src, int regions)
 			histogramvect_.push_back(hist);
 		}
 	}
-	std::cout << "histogramvect_ size after top layer: " << histogramvect_.size() << "\n";
+	//std::cout << "histogramvect_ size after top layer: " << histogramvect_.size() << "\n";
 
 	return ipa_Utils::RET_OK;
 }
@@ -835,7 +828,6 @@ void DetectionTrackerNode::inputCallback(const cob_people_detection_msgs::Detect
 	// convert segmentation image to cv::Mat
 	cv_bridge::CvImageConstPtr people_segmentation_image_ptr;
 	cv::Mat people_segmentation_image;
-	std::cout << "Number of Head Detections received: " << face_image_msg_in->head_detections.size() << "\n";
 	if (use_people_segmentation_ == true)
 		convertColorImageMessageToMat(people_segmentation_image_msg, people_segmentation_image_ptr, people_segmentation_image);
 
@@ -1033,7 +1025,7 @@ void DetectionTrackerNode::inputCallback(const cob_people_detection_msgs::Detect
 			assignmentProblem.assign(optimalAssignment);
 			if (debug_)
 				std::cout << "Assignment problem solved.\n";
-			std::cout << "costs_matrix" << "\n";
+			std::cout << "costs_matrix: " ;
 			for (int i = 0; i < costs_matrix.size(); i++)
 			{
 				for (int j = 0; j < costs_matrix[0].size(); j++)
@@ -1043,6 +1035,15 @@ void DetectionTrackerNode::inputCallback(const cob_people_detection_msgs::Detect
 				std::cout << "\n";
 			}
 
+			std::cout << "costs_matrix_image :";
+			for (int i = 0; i < costs_matrix.size(); i++)
+			{
+				for (int j = 0; j < costs_matrix[0].size(); j++)
+				{
+					std::cout << costs_matrix_image[i][j] << " ";
+				}
+				std::cout << "\n";
+			}
 			// read out solutions, update face_position_accumulator
 			for (int i = 0; i < num_rows; i++)
 			{
@@ -1060,15 +1061,15 @@ void DetectionTrackerNode::inputCallback(const cob_people_detection_msgs::Detect
 					previous_match_index = optimalAssignment[i].col;
 					current_match_index = optimalAssignment[i].row;
 				}
-				std::cout << "optimalAssignment row, previous match index " << previous_match_index << "\n";
-				std::cout << "optimalAssignment col, current match index " << current_match_index << "\n";
+				//std::cout << "optimalAssignment row, previous match index " << previous_match_index << "\n";
+				//std::cout << "optimalAssignment col, current match index " << current_match_index << "\n";
 
 				// rmb-ss: stop matching for poor similarity
-				// TODO : find appropriate values, block matching.
+				// TODO : find appropriate values.
 				// added checks for image similarity. Values to be determined experimentally
 				// if  cost < 50, do not match to previous detections.
 				// -> Detection will have no matching, new detections for unmatched entries are created in the next section.
-				if (costs_matrix_image[previous_match_index][current_match_index] < 66)
+				if (costs_matrix_image[previous_match_index][current_match_index] < 25 && costs_matrix[previous_match_index][current_match_index] < 80)
 				{
 					// instantiate the matching
 					copyDetection(face_position_msg_in->detections[current_match_index], face_position_accumulator_[previous_match_index], true, previous_match_index);
@@ -1093,11 +1094,11 @@ void DetectionTrackerNode::inputCallback(const cob_people_detection_msgs::Detect
 						face_image_accumulator_.erase(face_image_accumulator_.begin()+previous_match_index);
 						std::cout << "deleted entry of last entity at this position \n";
 					}
-					//std::cout << " Matching to previous detections was blocked because of low image similarities! ";
+					std::cout << " Matching to previous detections was blocked because of low image similarities! ";
 					if (costs_matrix_image[previous_match_index][current_match_index] > 83)
 					{
 						// TODO: can we check suspected false detections again or remove them outright instead of creating new detections for them?
-						//std::cout << "Cost to match image is extremely high. Match may not be a true face detection. \n";
+						std::cout << "Cost to match image is extremely high. Match may not be a true face detection. \n";
 
 					}
 				}
