@@ -408,10 +408,10 @@ double DetectionTrackerNode::computeFacePositionImageSimilarity(const sensor_msg
 
 	cv::resize(current_image, current_image_thumb, cv::Size(current_image.rows/2,current_image.cols/2));
 	cv::resize(previous_image, previous_image_thumb, cv::Size(current_image.rows/2,current_image.cols/2));
-	cv::GaussianBlur(current_image_thumb, current_image_thumb, cv::Size(5,5), 0, 0, cv::BORDER_DEFAULT);
-	cv::GaussianBlur(current_image_thumb, current_image_thumb, cv::Size(5,5), 0, 0, cv::BORDER_DEFAULT);
-	cv::GaussianBlur(previous_image_thumb, previous_image_thumb, cv::Size(5,5), 0, 0, cv::BORDER_DEFAULT);
-	cv::GaussianBlur(previous_image_thumb, previous_image_thumb, cv::Size(5,5), 0, 0, cv::BORDER_DEFAULT);
+	//cv::GaussianBlur(current_image_thumb, current_image_thumb, cv::Size(5,5), 0, 0, cv::BORDER_DEFAULT);
+	//cv::GaussianBlur(current_image_thumb, current_image_thumb, cv::Size(5,5), 0, 0, cv::BORDER_DEFAULT);
+	//cv::GaussianBlur(previous_image_thumb, previous_image_thumb, cv::Size(5,5), 0, 0, cv::BORDER_DEFAULT);
+	//cv::GaussianBlur(previous_image_thumb, previous_image_thumb, cv::Size(5,5), 0, 0, cv::BORDER_DEFAULT);
 
 	//PixelSimilarity(current_image_thumb, previous_image_thumb, diff_threshold, diff_pixels_perc, 3);
 	//std::cout << "blurred thumb percentage difference: " << diff_pixels_perc << "\n";
@@ -444,10 +444,10 @@ double DetectionTrackerNode::computeFacePositionImageSimilarity(const sensor_msg
 
 	cv::resize(curr_cut, curr_cut, cv::Size(curr_cut.rows/2,curr_cut.cols/2));
 	cv::resize(prev_cut, prev_cut, cv::Size(prev_cut.rows/2,prev_cut.cols/2));
-	cv::GaussianBlur(curr_cut, curr_cut, cv::Size(5,5), 0, 0, cv::BORDER_DEFAULT);
-	cv::GaussianBlur(curr_cut, curr_cut, cv::Size(5,5), 0, 0, cv::BORDER_DEFAULT);
-	cv::GaussianBlur(prev_cut, prev_cut, cv::Size(5,5), 0, 0, cv::BORDER_DEFAULT);
-	cv::GaussianBlur(prev_cut, prev_cut, cv::Size(5,5), 0, 0, cv::BORDER_DEFAULT);
+	//cv::GaussianBlur(curr_cut, curr_cut, cv::Size(5,5), 0, 0, cv::BORDER_DEFAULT);
+	//cv::GaussianBlur(curr_cut, curr_cut, cv::Size(5,5), 0, 0, cv::BORDER_DEFAULT);
+	//cv::GaussianBlur(prev_cut, prev_cut, cv::Size(5,5), 0, 0, cv::BORDER_DEFAULT);
+	//cv::GaussianBlur(prev_cut, prev_cut, cv::Size(5,5), 0, 0, cv::BORDER_DEFAULT);
 
 	//PixelSimilarity(curr_cut, prev_cut, diff_threshold, diff_pixels_perc);
 	//std::cout << "cut color percentage difference: " << diff_pixels_perc << "\n";
@@ -473,15 +473,22 @@ double DetectionTrackerNode::computeFacePositionImageSimilarity(const sensor_msg
 	//    CV_COMP_BHATTACHARYYA Bhattacharyya distance
 	OLBPHistogram(current_image_olbp, 16);
 	OLBPHistogram(previous_image_olbp, 16);
-	for (int i=0; i<16; i++)
+
+	// defining weights for histogram regions in three pyramid layers
+	int olbp_base_weight [] = {1, 2, 2, 1, 2, 4, 4, 2, 2, 4, 4, 2, 1, 2, 2, 1};
+	int olbp_mid_weight [] = {1, 2, 1, 2, 4, 2, 1, 2, 1};
+	int oldpb_top_weight [] = {1, 1, 1, 1};
+
+	for (int i=0; i<25; i++)
 	{
-		histocomp_temp += cv::compareHist(histogramvect_[i], histogramvect_[i+16], CV_COMP_CORREL);
+		histocomp_temp += cv::compareHist(histogramvect_[i], histogramvect_[i+25], CV_COMP_CORREL);
 		//std::cout << "histcomp_temp: " << histocomp_temp << "\n";
 	}
+
 	//Output of sum to check correct use. Correlation: 0-1, 1 is full match. Expected value: 0 - number of regions
 	//std::cout << "sum of compareHist results " << histocomp_temp << "\n";
-	double histocomp_res = histocomp_temp / 16;
-	//std::cout << "divided by number of regions: " << histocomp_res << "\n";
+	double histocomp_res = histocomp_temp / 25;
+	std::cout << "divided by number of regions: " << histocomp_res << "\n";
 	histogramvect_.clear();
 
 	// comparison, working on padded images, borders added to match images in size
@@ -630,22 +637,73 @@ unsigned long DetectionTrackerNode::OLBPHistogram(cv::Mat src, int regions)
 	cv::Mat src_roi;
 	int channels[] = {0};
 
-	// create matrix for histogram visualization
+	// calculate histogram over image, equally divided into regions
+	// 3 layers: base, mid, top. 4x4, 3x3, 2x2.
+	// top layer identical to middle 2x2 of 4x4
 	cv::Rect roi;
 	int x = sqrt(regions);
-	int width = src.cols/x;
+	int width_base = src.cols/x;
+	int width_mid = (src.cols - 2/3*width_base) / (x-1);
+	int width_top = (src.cols - 2/3*width_base - 2/3*width_mid) / (x-2);
+
+	std::cout << "Pyramid ROI sizes - Base: " << width_base << " Mid: " << width_mid << " Top: " << width_top << "\n";
+	for (int h = 0; h<2; h++)
+	{
+		int width = (src.cols - h*width_base)/(x-h);
+		for (int i =0; i<(x-h); i++)
+		{
+			for (int j=0; j<(x-h); j++)
+			{
+				roi = cv::Rect((width*i+h*width/2), (width*j+h*width/2), width, width);
+				src_roi = src(roi);
+				cv::calcHist(&src_roi, 1, channels, cv::Mat(), hist, 1, histSize, ranges, true, false);
+				histogramvect_.push_back(hist);
+				//std::cout << histogramvect_.size() << "\n";
+			}
+		}
+		std::cout << "histogramvect_ size after " << h+1 << " iterations: " << histogramvect_.size() << "\n";
+	}
+	histogramvect_.clear();
+	std::cout << "cleared histogramvect, refilling it with easy-read version to check functionality \n";
+	// easy to read version:
+	// base layer
 	for (int i =0; i<x; i++)
 	{
 		for (int j=0; j<x; j++)
 		{
-			roi = cv::Rect(width*i, width*j, width, width);
+			roi = cv::Rect((width_base*i), (width_base*j), width_base, width_base);
 			src_roi = src(roi);
 			cv::calcHist(&src_roi, 1, channels, cv::Mat(), hist, 1, histSize, ranges, true, false);
 			histogramvect_.push_back(hist);
-			//std::cout << histogramvect_.size() << "\n";
 		}
 	}
+	std::cout << "histogramvect_ size after base layer: " << histogramvect_.size() << "\n";
 
+	// middle layer
+	for (int i =0; i<x-1; i++)
+	{
+		for (int j=0; j<x-1; j++)
+		{
+			roi = cv::Rect((width_mid*i+(width_base/3)), (width_mid*j+(width_base/3)), width_mid, width_mid);
+			src_roi = src(roi);
+			cv::calcHist(&src_roi, 1, channels, cv::Mat(), hist, 1, histSize, ranges, true, false);
+			histogramvect_.push_back(hist);
+		}
+	}
+	std::cout << "histogramvect_ size after mid layer: " << histogramvect_.size() << "\n";
+
+	// top layer
+	for (int i =0; i<x-2; i++)
+	{
+		for (int j=0; j<x-2; j++)
+		{
+			roi = cv::Rect((width_top*i+((width_mid+width_base)/3)), (width_top*j+((width_mid+width_base)/3)), width_top, width_top);
+			src_roi = src(roi);
+			cv::calcHist(&src_roi, 1, channels, cv::Mat(), hist, 1, histSize, ranges, true, false);
+			histogramvect_.push_back(hist);
+		}
+	}
+	std::cout << "histogramvect_ size after top layer: " << histogramvect_.size() << "\n";
 
 	return ipa_Utils::RET_OK;
 }
