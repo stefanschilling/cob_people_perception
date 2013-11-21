@@ -20,7 +20,7 @@ min_segmented_people_ratio_head: 0.2
 
 # maximum tracking manhattan distance for a face (in meters), i.e. a face can move this distance between two images and can still be tracked #0.2
 # double
-tracking_range_m: 0.4
+tracking_range_m: 0.3
 
 # face identification score decay rate (0 < x < 1), i.e. the score for each label at a certain detection location is multiplied by this factor #0.9
 # double
