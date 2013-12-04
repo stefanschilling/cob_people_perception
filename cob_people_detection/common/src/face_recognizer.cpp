@@ -227,7 +227,6 @@ unsigned long ipa_PeopleDetector::FaceRecognizer::addFace(cv::Mat& color_image, 
 	dm_exist.push_back(true);
 
 	return ipa_Utils::RET_OK;
-
 }
 
 unsigned long ipa_PeopleDetector::FaceRecognizer::updateFaceLabels(std::string old_label, std::string new_label)
@@ -538,15 +537,15 @@ unsigned long ipa_PeopleDetector::FaceRecognizer::recognizeFace(cv::Mat& color_i
 }
 
 
-unsigned long ipa_PeopleDetector::FaceRecognizer::recognizeFace(cv::Mat& color_image,cv::Mat& depth_image, std::vector<cv::Rect>& face_coordinates, std::vector<std::string>& identification_labels)
+unsigned long ipa_PeopleDetector::FaceRecognizer::recognizeFace(cv::Mat& color_image, cv::Mat& depth_image, std::vector<cv::Rect>& face_coordinates, std::vector<std::string>& identification_labels)
 {
-  timeval t1,t2;
-  gettimeofday(&t1,NULL);
+	timeval t1, t2;
+	gettimeofday(&t1, NULL);
 	// secure this function with a mutex
 	boost::lock_guard<boost::mutex> lock(m_data_mutex);
 
 	//int number_eigenvectors = m_eigenvectors.size();
-	if (eff_color->trained_==false )
+	if (eff_color->trained_ == false)
 	{
 		std::cout << "Error: FaceRecognizer::recognizeFace: Load or train some identification model, first.\n" << std::endl;
 		return ipa_Utils::RET_FAILED;
@@ -555,45 +554,44 @@ unsigned long ipa_PeopleDetector::FaceRecognizer::recognizeFace(cv::Mat& color_i
 	identification_labels.clear();
 
 	cv::Size resized_size(m_eigenvectors[0].size());
-	for(int i=0; i<(int)face_coordinates.size(); i++)
+	for (int i = 0; i < (int) face_coordinates.size(); i++)
 	{
 		cv::Rect face = face_coordinates[i];
 		//convertAndResize(depth_image, resized_8U1, face, resized_size);
-    cv::Mat color_crop=color_image(face);
-    cv::Mat depth_crop_xyz=depth_image(face);
+		cv::Mat color_crop = color_image(face);
+		cv::Mat depth_crop_xyz = depth_image(face);
 
-     cv::Mat DM_crop=cv::Mat::zeros(m_norm_size,m_norm_size,CV_8UC1);
-    cv::Size norm_size=cv::Size(m_norm_size,m_norm_size);
-    if(face_normalizer_.normalizeFace(color_crop,depth_crop_xyz,norm_size,DM_crop));
+		cv::Mat DM_crop = cv::Mat::zeros(m_norm_size, m_norm_size, CV_8UC1);
+		cv::Size norm_size = cv::Size(m_norm_size, m_norm_size);
+		face_normalizer_.normalizeFace(color_crop, depth_crop_xyz, norm_size, DM_crop);
 
+		double DFFS;
+		cv::Mat temp;
+		color_crop.convertTo(color_crop, CV_64FC1);
 
-     double DFFS;
-     cv::Mat temp;
-     color_crop.convertTo(color_crop,CV_64FC1);
+		int res_label_color, res_label_depth;
+		std::string class_color;
 
-      int res_label_color, res_label_depth;
-      std::string class_color;
+		if (eff_color->trained_)
+		{
+			eff_color->classifyImage(color_crop, res_label_color);
+			if (res_label_color == -1)
+			{
+				class_color = "Unknown";
+			}
+			else
+			{
+				class_color = m_current_label_set[res_label_color];
+			}
+		}
 
-
-      if(eff_color->trained_)
-      {
-        eff_color->classifyImage(color_crop,res_label_color);
-        if(res_label_color==-1)
-        {
-          class_color="Unknown";
-        }
-        else
-        {
-          class_color=m_current_label_set[res_label_color];
-        }
-      }
-
-
-      identification_labels.push_back(class_color);
+		identification_labels.push_back(class_color);
 	}
 
-  gettimeofday(&t2,NULL);
-  if(m_debug)std::cout<< "time ="<<(t2.tv_usec-t1.tv_usec)/1000.0<<std::endl;
+	gettimeofday(&t2, NULL);
+	if (m_debug)
+		std::cout << "time =" << (t2.tv_usec - t1.tv_usec) / 1000.0
+				<< std::endl;
 
 	return ipa_Utils::RET_OK;
 }

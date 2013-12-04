@@ -117,29 +117,63 @@ void ipa_PeopleDetector::FaceRecognizer1D::calcDIFS(cv::Mat& probe_mat,int& minD
 
     double norm;
     minDIFS=std::numeric_limits<float>::max();
-    probabilities=cv::Mat(1,num_classes_,CV_64FC1);
-    probabilities *=  std::numeric_limits<float>::max();
-      for(int r=0;r<model_features_.rows;r++)
-      {
-        cv::Mat model_mat=model_features_.row(r);
+    probabilities=cv::Mat::ones(1,num_classes_,CV_64FC1)*0.01;
+//    probabilities *=  std::numeric_limits<float>::max();
 
-        //calculate L2 norm between probe amd all model mats
+    std::multimap<double, int> ordered_neighbors;
+    // iterate through face space projections of all sample images, calculates the L2 norm between them and the input probe_mat
+    // sets ordered_neighbors [L2norm between sample and input] to the index of the sample
+    // multimap allows for multiple entries per calculated L2norm, in case of same distances.
+	for(int r=0;r<model_features_.rows;r++)
+	{
+		cv::Mat model_mat=model_features_.row(r);
+
+        //calculate L2 norm between probe and all model mats
         norm=cv::norm(probe_mat,model_mat,cv::NORM_L2);
+        //ordered_neighbors[norm] = r;
+        ordered_neighbors.insert(std::pair<double,int>(norm,r));
+
 
         // update minimum distance and index if required
-        if(norm < minDIFS )
-        {
-          minDIFSindex=r;
-          minDIFS=norm;
-        }
+//        if(norm < minDIFS )
+//        {
+//          minDIFSindex=r;
+//          minDIFS=norm;
+//        }
         //calculate cost for classification to every class in database
-      }
+	}
+
+    // update minimum distance and index if required
+	// ordered neighbors is <double, int>, int for index of sample picture, double for distance to probe.
+	// so we ordered neighbors is filled with the distance of all samples to the probe, and from the indeces we know which samples relate to what label/person
+	minDIFSindex = ordered_neighbors.begin()->second;
+	minDIFS = ordered_neighbors.begin()->first;
+
+	// probabilities
+	int counter=0;
+	int number_nearest_neighbors_for_pdf = 20; // include a maximum of 20 top probabilities
+	assert(target_dim_ == model_features_.cols);
+	double max_face_space_dist = target_dim_ * 10.; // max distance in face space set to 10x model features.cols (rows = face space projections of sample images. Columns = features?)
+
+	// iterate through ordered_neighbors multimap. Stop at end of neighbors or after reaching the number of nearest neighbors.
+	for (std::multimap<double, int>::iterator it=ordered_neighbors.begin(); it!=ordered_neighbors.end() && counter<number_nearest_neighbors_for_pdf; ++it, ++counter)
+	{
+		if (it->first > max_face_space_dist)
+			break;
+		probabilities.at<double>(model_label_vec_[it->second]) += 1.;
+	}
+	double sum = 0.;
+	for (int i=0; i<probabilities.cols; ++i)
+		sum += probabilities.at<double>(i);
+	for (int i=0; i<probabilities.cols; ++i)
+		probabilities.at<double>(i) /= sum;
 
     //process class_cost
-    double min_cost,max_cost;
-    probabilities=1/(probabilities.mul(probabilities));
-    cv::minMaxLoc(probabilities,&min_cost,&max_cost,0,0);
-    probabilities/=max_cost;
+
+//    double min_cost,max_cost;
+//    probabilities=1/(probabilities.mul(probabilities));
+//    cv::minMaxLoc(probabilities,&min_cost,&max_cost,0,0);
+//    probabilities/=max_cost;
 
     return;
 }
@@ -197,33 +231,71 @@ void ipa_PeopleDetector::FaceRecognizer2D::extractFeatures(cv::Mat& src_mat,cv::
 void ipa_PeopleDetector::FaceRecognizer2D::calcDIFS(cv::Mat& probe_mat,int& minDIFSindex,double& minDIFS,cv::Mat& probabilities)
 {
     minDIFS=std::numeric_limits<double>::max();
-    probabilities=cv::Mat(1,num_classes_,CV_32FC1);
-    probabilities*=  std::numeric_limits<float>::max();
-      for(int m=0;m<model_features_.size();m++)
-      {
-        // subtract matrices
-        cv::Mat work_mat;
-        cv::subtract (probe_mat,model_features_[m],work_mat);
-        cv::pow(work_mat,2,work_mat);
-        cv::Mat tmp_vec=cv::Mat::zeros(1,probe_mat.cols,CV_64FC1);
-        cv::reduce(work_mat,tmp_vec,0,CV_REDUCE_SUM);
+    probabilities=cv::Mat::ones(1,num_classes_,CV_64FC1)*0.01;
+    //probabilities=cv::Mat(1,num_classes_,CV_32FC1);
+    //probabilities*=  std::numeric_limits<float>::max();
+
+    std::multimap<double, int> ordered_neighbors;
+
+    // why does model_features_ have "size" here, but no cols or rows as in the code above?
+    // more importantly, does this change the result?
+
+	for(int m=0;m<model_features_.size();m++)
+	{
+		// subtract matrices
+		cv::Mat work_mat;
+		cv::subtract (probe_mat,model_features_[m],work_mat);
+		cv::pow(work_mat,2,work_mat);
+		cv::Mat tmp_vec=cv::Mat::zeros(1,probe_mat.cols,CV_64FC1);
+		cv::reduce(work_mat,tmp_vec,0,CV_REDUCE_SUM);
 
         cv::Scalar norm=cv::sum(tmp_vec);
 
-          if((double)norm[0] < minDIFS )
-          {
-            minDIFSindex=m;
-            minDIFS=(double)norm[0];
-          }
+        // norm is a cv::scalar in this case, not a double.
+        // below, its simply cast to double, is that valid for this case? (cv::scalar may be multidimensional, for multi-channel operations)
+        // if conversion below is valid, ordered neighbors can be applied as before
+        //ordered_neighbors[(double)norm[0]] = m;
+        ordered_neighbors.insert(std::pair<double,int>((double)norm[0],m));
+
+
+		/*
+		if((double)norm[0] < minDIFS )
+		{
+			minDIFSindex=m;
+			minDIFS=(double)norm[0];
+		}
+		*/
         //calculate cost for classification to every class in database
         probabilities.at<float>(model_label_vec_[m])=std::min(probabilities.at<float>(model_label_vec_[m]),(float)norm[0]);
-        }
+    }
+    // update minimum distance and index if required
+	minDIFSindex = ordered_neighbors.begin()->second;
+	minDIFS = ordered_neighbors.begin()->first;
 
+	// probabilities
+	int counter=0;
+	int number_nearest_neighbors_for_pdf = 20;
+	assert(target_dim_ == model_features_.size());
+	double max_face_space_dist = target_dim_ * 10.;
+	for (std::multimap<double, int>::iterator it=ordered_neighbors.begin(); counter<number_nearest_neighbors_for_pdf && it!=ordered_neighbors.end(); ++it, ++counter)
+	{
+		if (it->first > max_face_space_dist)
+			break;
+		probabilities.at<double>(model_label_vec_[it->second]) += 1.;
+	}
+	double sum = 0.;
+	for (int i=0; i<probabilities.cols; ++i)
+		sum += probabilities.at<double>(i);
+	for (int i=0; i<probabilities.cols; ++i)
+		probabilities.at<double>(i) /= sum;
+
+	/*
     //process class_cost
     double min_cost,max_cost;
     probabilities=1/(probabilities.mul(probabilities));
     cv::minMaxLoc(probabilities,&min_cost,&max_cost,0,0);
     probabilities/=max_cost;
+	*/
 
     return;
 }

@@ -169,7 +169,7 @@ namespace ipa_PeopleDetector{
 
     protected:
       cv::Mat average_arr_;
-      cv::Mat model_features_;
+      cv::Mat model_features_;	///< probably a matrix that contains the face space projection of all training images, one sample per row
 
   };
 
