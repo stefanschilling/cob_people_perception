@@ -432,6 +432,9 @@ void FaceRecognizerNode::facePositionsCallback(const cob_people_detection_msgs::
 
 	// --- face recognition ---
 	std::vector< std::vector<std::string> > identification_labels;
+	std::vector< std::vector< std::string> > labels;
+	std::vector< std::vector< float> > scores;
+
 	bool identification_failed = false;
 	if (enable_face_recognition_ == true)
 	{
@@ -441,7 +444,7 @@ void FaceRecognizerNode::facePositionsCallback(const cob_people_detection_msgs::
 
     //timeval t1,t2;
     //gettimeofday(&t1,NULL);
-		unsigned long result_state = face_recognizer_.recognizeFaces(heads_color_images,heads_depth_images, face_bounding_boxes, identification_labels);
+		unsigned long result_state = face_recognizer_.recognizeFaces(heads_color_images,heads_depth_images, face_bounding_boxes, identification_labels, labels, scores);
     //gettimeofday(&t2,NULL);
     //std::cout<<(t2.tv_sec - t1.tv_sec) * 1000.0<<std::endl;
 		if (result_state == ipa_Utils::RET_FAILED)
@@ -491,6 +494,11 @@ void FaceRecognizerNode::facePositionsCallback(const cob_people_detection_msgs::
 			det.detector = "head";
 			// header
 			det.header = face_positions->header;
+			//TODO Find out why label_distribution is not recognized, fix, fill with values as received from face_recognizer
+			/*
+			det.label_distribution[0].label = "thislabel";
+			det.label_distribution[0].score = 0;
+			*/
 			// add to message
 			detection_msg.detections.push_back(det);
 		}

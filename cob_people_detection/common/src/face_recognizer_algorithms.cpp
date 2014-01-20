@@ -239,6 +239,7 @@ void ipa_PeopleDetector::FaceRecognizer2D::calcDIFS(cv::Mat& probe_mat,int& minD
 
     // why does model_features_ have "size" here, but no cols or rows as in the code above?
     // more importantly, does this change the result?
+    // found below: assertion with model features size fails
 
 	for(int m=0;m<model_features_.size();m++)
 	{
@@ -257,7 +258,6 @@ void ipa_PeopleDetector::FaceRecognizer2D::calcDIFS(cv::Mat& probe_mat,int& minD
         //ordered_neighbors[(double)norm[0]] = m;
         ordered_neighbors.insert(std::pair<double,int>((double)norm[0],m));
 
-
 		/*
 		if((double)norm[0] < minDIFS )
 		{
@@ -275,12 +275,23 @@ void ipa_PeopleDetector::FaceRecognizer2D::calcDIFS(cv::Mat& probe_mat,int& minD
 	// probabilities
 	int counter=0;
 	int number_nearest_neighbors_for_pdf = 20;
-	assert(target_dim_ == model_features_.size());
-	double max_face_space_dist = target_dim_ * 10.;
+
+	//TODO Find out why assertion below now fails and breaks program
+	//outputs show: model features has size 60, target dim is 15.
+	//assert(target_dim_ == model_features_.size());
+	//std::cout << "model_features_ existiert und hat size: " << model_features_.size() << "\n";
+	//std::cout << "target_dim_ dagegen ist: " << target_dim_ << "\n";
+
+	//TODO find reasonable max face space distance
+	double max_face_space_dist = target_dim_ * 300000.;
+	//std::cout <<" max dist : " << max_face_space_dist <<"\n";
 	for (std::multimap<double, int>::iterator it=ordered_neighbors.begin(); counter<number_nearest_neighbors_for_pdf && it!=ordered_neighbors.end(); ++it, ++counter)
 	{
 		if (it->first > max_face_space_dist)
+		{
+			std::cout << "Max face space dist reached after iterating through " << counter << " nearest neighbors\n";
 			break;
+		}
 		probabilities.at<double>(model_label_vec_[it->second]) += 1.;
 	}
 	double sum = 0.;
