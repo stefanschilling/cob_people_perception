@@ -241,36 +241,67 @@ unsigned long DetectionTrackerNode::copyDetection(const cob_people_detection_msg
 		// update label history
 		// if (src.label!="No face")
 		// {
-		if (face_identification_votes_[updateIndex].find(src.label) == face_identification_votes_[updateIndex].end())
+		// TODO : We now need to keep track of all labels per detection and assign/increase the score received, instead of setting/adding
+		// TODO : Since Unknown Head will not bring a label_distribution, previous label_distribution should be saved for use here
+		/*if (face_identification_votes_[updateIndex].find(src.label) == face_identification_votes_[updateIndex].end())
 		{
-			face_identification_votes_[updateIndex][src.label] = 1.0;
-			//std::cout << "setting votes to 1 \n";
+			face_identification_votes_[updateIndex][src.label] = src.score;
+			std::cout << "setting votes to src.score: " << src.score << " \n";
 		}
 		else
 		{
-			face_identification_votes_[updateIndex][src.label] += 1.0;
-			//std::cout << "increasing votes by 1 for - " << src.label << " - votes are now - " << face_identification_votes_[updateIndex][src.label] << "\n";
+			std::cout << "increasing votes by " << src.score << " for - " << src.label << " " << face_identification_votes_[updateIndex][src.label] << " + " << src.score << " = ";
+			face_identification_votes_[updateIndex][src.label] += src.score;
+			std::cout << face_identification_votes_[updateIndex][src.label] << "\n";
 
+		}*/
+
+		if (src.label == "UnknownHead")
+		{
+			std::cout << " UnknownHead received, using previous distribution! ";
+			for (int i=0; i < previous_label_distribution_[updateIndex].size(); i++)
+			{
+				std::cout << " increasing  " << face_identification_votes_[updateIndex][previous_label_distribution_[updateIndex][i].label] << " by " << previous_label_distribution_[updateIndex][i].score;
+				face_identification_votes_[updateIndex][previous_label_distribution_[updateIndex][i].label] += previous_label_distribution_[updateIndex][i].score;
+				std::cout << " new score " << face_identification_votes_[updateIndex][previous_label_distribution_[updateIndex][i].label] << "\n";
+			}
 		}
+		else
+		{
+			for (int i=0; i < src.label_distribution.size(); i++)
+			{
+				std::cout << "increasing  " << face_identification_votes_[updateIndex][src.label_distribution[i].label] << " by " << src.label_distribution[i].score;
+				face_identification_votes_[updateIndex][src.label_distribution[i].label] += src.label_distribution[i].score;
+				std::cout << " new score " << face_identification_votes_[updateIndex][src.label_distribution[i].label] << "\n";
+			}
+		}
+
+		//std::cout << src.label_distribution[0].label << "\n";
 
 		// }
 
 		// apply voting decay with time and find most voted label
 		double max_score = 0;
+
+		// it is no longer necessary to copy the updated score of "UnknownHead" to the dest.label
+		/*
 		if (src.label == "UnknownHead")
 		{
-			//std::cout << "copy src votes to dest votes for unknown head \n";
+			std::cout << "copy " << src.label << " votes ( " << face_identification_votes_[updateIndex][src.label] << " ) to " << dest.label << " ( " << face_identification_votes_[updateIndex][dest.label] <<" )\n";
 			face_identification_votes_[updateIndex][dest.label] = face_identification_votes_[updateIndex][src.label];
 		}
+		*/
 
 		//std::cout << "copy src.label to dest.label : " << dest.label << " = " << src.label << "\n";
 		//std::cout << " - votes are now - dest: " << face_identification_votes_[updateIndex][src.label] << "\n" << "src: " << face_identification_votes_[updateIndex][dest.label] << "\n";
+
+		// TODO : i don't know what the line below is used for.
 		dest.label = src.label;
 
 		//std::cout << "copy src votes to dest votes \n";
 		//face_identification_votes_[updateIndex][dest.label] = face_identification_votes_[updateIndex][src.label];
 
-
+		// decay applied here
 		for (std::map<std::string, double>::iterator face_identification_votes_it=face_identification_votes_[updateIndex].begin(); face_identification_votes_it!=face_identification_votes_[updateIndex].end(); face_identification_votes_it++)
 		{
 			// todo: make the decay time-dependend - otherwise faster computing = faster decay. THIS IS ACTUALLY WRONG as true detections occur with same rate as decay -> so computing power only affects response time to a changed situation
@@ -1025,7 +1056,7 @@ void DetectionTrackerNode::inputCallback(const cob_people_detection_msgs::Detect
 			assignmentProblem.assign(optimalAssignment);
 			if (debug_)
 				std::cout << "Assignment problem solved.\n";
-			std::cout << "costs_matrix: " ;
+			/*std::cout << "costs_matrix: " ;
 			for (int i = 0; i < costs_matrix.size(); i++)
 			{
 				for (int j = 0; j < costs_matrix[0].size(); j++)
@@ -1043,7 +1074,7 @@ void DetectionTrackerNode::inputCallback(const cob_people_detection_msgs::Detect
 					std::cout << costs_matrix_image[i][j] << " ";
 				}
 				std::cout << "\n";
-			}
+			}*/
 			// read out solutions, update face_position_accumulator
 			for (int i = 0; i < num_rows; i++)
 			{
@@ -1080,6 +1111,15 @@ void DetectionTrackerNode::inputCallback(const cob_people_detection_msgs::Detect
 							current_detection_has_matching[i] = true;
 							// rmb-ss update previous image with current match image.
 							face_image_accumulator_[previous_match_index]=face_image_msg_in->head_detections[current_match_index].color_image;
+							if (face_position_msg_in->detections[current_match_index].label != "UnknownHead")
+							{
+								for (int j = 0; j < face_position_msg_in->detections[current_match_index].label_distribution.size(); j++)
+								{
+									previous_label_distribution_[previous_match_index]=face_position_msg_in->detections[current_match_index].label_distribution;
+									//std::cout << "updated previous label distribution for matched detection \n";
+									//std::cout << "previous [0].score is now" << previous_label_distribution_[0][0].score << "\n";
+								}
+							}
 							//std::cout << "votes on detection: " << face_identification_votes_[previous_match_index]["Stefan"] << "\n";
 							// end rmb-ss
 						}
@@ -1117,9 +1157,6 @@ void DetectionTrackerNode::inputCallback(const cob_people_detection_msgs::Detect
 		{
 			const cob_people_detection_msgs::Detection& det_in = face_position_msg_in->detections[face_detection_indices[i]];
 
-			//face_image_msg_in->head_detections[face_detection_indices[i]].color_image.header = face_image_msg_in->header;
-
-
 			if (det_in.detector=="face")
 			{
 				// save in accumulator
@@ -1134,6 +1171,15 @@ void DetectionTrackerNode::inputCallback(const cob_people_detection_msgs::Detect
 				// save head detection images
 				face_image_accumulator_.push_back(face_image_msg_in->head_detections[face_detection_indices[i]].color_image);
 				std::cout << "image accu size: " << face_image_accumulator_.size() << " position accu size: " << face_position_accumulator_.size() << "\n";
+				if (det_in.label != "UnknownHead")
+				{
+					for (int j = 0; j < det_in.label_distribution.size(); j++)
+					{
+						previous_label_distribution_.push_back(det_in.label_distribution);
+						//std::cout << "saved previous labeldist. labeldistsize: " << previous_label_distribution_.size() << "\n";
+						//std::cout << "previous [0].score is" << previous_label_distribution_[0][0].score << "\n";
+					}
+				}
 				// end rmb-ss
 
 				// remember label history

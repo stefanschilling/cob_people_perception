@@ -538,7 +538,7 @@ unsigned long ipa_PeopleDetector::FaceRecognizer::recognizeFace(cv::Mat& color_i
 }
 
 
-unsigned long ipa_PeopleDetector::FaceRecognizer::recognizeFace(cv::Mat& color_image, cv::Mat& depth_image, std::vector<cv::Rect>& face_coordinates, std::vector<std::string>& identification_labels, std::vector <std::string>& labels, std::vector< float>& scores)
+unsigned long ipa_PeopleDetector::FaceRecognizer::recognizeFace(cv::Mat& color_image, cv::Mat& depth_image, std::vector<cv::Rect>& face_coordinates, std::vector<std::string>& identification_labels, std::vector<std::string>& labels, std::vector<float>& scores)
 {
 	timeval t1, t2;
 	gettimeofday(&t1, NULL);
@@ -553,6 +553,9 @@ unsigned long ipa_PeopleDetector::FaceRecognizer::recognizeFace(cv::Mat& color_i
 	}
 
 	identification_labels.clear();
+	//clear inner label and score vectors, set their size according to label set
+	labels.resize(m_current_label_set.size());
+	scores.resize(m_current_label_set.size());
 	labels.clear();
 	scores.clear();
 
@@ -588,20 +591,11 @@ unsigned long ipa_PeopleDetector::FaceRecognizer::recognizeFace(cv::Mat& color_i
 			else
 			{
 				class_color = m_current_label_set[res_label_color];
-				std::cout << "res_label_color is " << res_label_color << "\n";
-				std::cout << "current label set size is " << m_current_label_set.size() << "\n";
-				//TODO convert classification_probabilities to string and float entries for labels+scores
+				// turn classification_probabilities into string and float entries for labels and scores vector
 				for (int i=0; i<classification_probabilities.cols; i++)
 				{
-					if (classification_probabilities.at<double>(i) > 0.5)
-					{
-						//labels.push_back(m_current_label_set[i]);
-						//scores.push_back(classification_probabilities.at<double>(i));
-						std::cout << " Found label with more than 50% chance at i = " << i <<  "\n";
-						std::cout << "score for label is: " << classification_probabilities.at<double>(i) << "\n";
-						std::cout << "try to add it to labels! \n";
-						probable_labels = m_current_label_set[i];
-					}
+					labels.push_back(m_current_label_set[i]);
+					scores.push_back(classification_probabilities.at<double>(i));
 				}
 			}
 		}

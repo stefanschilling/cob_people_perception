@@ -129,6 +129,7 @@ protected:
 	std::vector<cob_people_detection_msgs::ColorDepthImage> face_image_array_accumulator_; // accumulates face images over time
 	std::vector<cob_people_detection_msgs::ColorDepthImageArray> face_image_array_accumulator2_; // accumulates face images over time
 	std::vector<cv::Mat> histogramvect_;
+	std::vector<std::vector <cob_people_detection_msgs::LabelScorePair> >previous_label_distribution_;
 	//end rmb-ss
 
 	ros::Publisher face_position_publisher_; ///< publisher for the positions of the detected faces

@@ -289,7 +289,7 @@ void ipa_PeopleDetector::FaceRecognizer2D::calcDIFS(cv::Mat& probe_mat,int& minD
 	{
 		if (it->first > max_face_space_dist)
 		{
-			std::cout << "Max face space dist reached after iterating through " << counter << " nearest neighbors\n";
+			//std::cout << "Max face space dist reached after iterating through " << counter << " nearest neighbors\n";
 			break;
 		}
 		probabilities.at<double>(model_label_vec_[it->second]) += 1.;

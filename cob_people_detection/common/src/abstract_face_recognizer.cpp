@@ -104,7 +104,11 @@ unsigned long AbstractFaceRecognizer::recognizeFaces(std::vector<cv::Mat>& color
 {
 	// prepare index list
 	identification_labels.clear();
+	labels.clear();
+	scores.clear();
 	identification_labels.resize(face_coordinates.size());
+	labels.resize(face_coordinates.size());
+	scores.resize(face_coordinates.size());
 
 	// find identification indices
 	for (unsigned int i=0; i<color_images.size(); i++)

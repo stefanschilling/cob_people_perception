@@ -432,8 +432,8 @@ void FaceRecognizerNode::facePositionsCallback(const cob_people_detection_msgs::
 
 	// --- face recognition ---
 	std::vector< std::vector<std::string> > identification_labels;
-	std::vector< std::vector< std::string> > labels;
-	std::vector< std::vector< float> > scores;
+	std::vector< std::vector<std::string> > labels;
+	std::vector< std::vector<float> > scores;
 
 	bool identification_failed = false;
 	if (enable_face_recognition_ == true)
@@ -494,12 +494,6 @@ void FaceRecognizerNode::facePositionsCallback(const cob_people_detection_msgs::
 			det.detector = "head";
 			// header
 			det.header = face_positions->header;
-			//TODO Find out why label_distribution is not recognized, fix, fill with values as received from face_recognizer
-			/*
-			det.label_distribution[0].label = "thislabel";
-			det.label_distribution[0].score = 0;
-			*/
-			// add to message
 			detection_msg.detections.push_back(det);
 		}
 		else
@@ -508,6 +502,7 @@ void FaceRecognizerNode::facePositionsCallback(const cob_people_detection_msgs::
 			for (int face=0; face<(int)face_bounding_boxes[head].size(); face++)
 			{
 				cob_people_detection_msgs::Detection det;
+				cob_people_detection_msgs::LabelScorePair pair;
 				cv::Rect& head_bb = head_bounding_boxes[head];
 				cv::Rect& face_bb = face_bounding_boxes[head][face];
 				// set 3d position of head's center
@@ -527,6 +522,17 @@ void FaceRecognizerNode::facePositionsCallback(const cob_people_detection_msgs::
 				det.detector = "face";
 				// header
 				det.header = face_positions->header;
+				// label distribution
+				for (int i=0; i < labels[head].size(); i++)
+				{
+					pair.label = labels[head][i];
+					if (labels[head][i] == det.label)
+					{
+						det.score = scores[head][i];
+					}
+					pair.score = scores[head][i];
+					det.label_distribution.push_back(pair);
+				}
 				// add to message
 				detection_msg.detections.push_back(det);
 			}
