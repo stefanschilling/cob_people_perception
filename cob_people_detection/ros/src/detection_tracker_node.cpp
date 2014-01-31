@@ -243,6 +243,7 @@ unsigned long DetectionTrackerNode::copyDetection(const cob_people_detection_msg
 		// {
 		// TODO : We now need to keep track of all labels per detection and assign/increase the score received, instead of setting/adding
 		// TODO : Since Unknown Head will not bring a label_distribution, previous label_distribution should be saved for use here
+		// done: when a match for a previous detection with label is found, the label distribution will be saved
 		/*if (face_identification_votes_[updateIndex].find(src.label) == face_identification_votes_[updateIndex].end())
 		{
 			face_identification_votes_[updateIndex][src.label] = src.score;
@@ -258,21 +259,21 @@ unsigned long DetectionTrackerNode::copyDetection(const cob_people_detection_msg
 
 		if (src.label == "UnknownHead")
 		{
-			std::cout << " UnknownHead received, using previous distribution! ";
+			//std::cout << " UnknownHead received, using previous distribution! \n";
 			for (int i=0; i < previous_label_distribution_[updateIndex].size(); i++)
 			{
-				std::cout << " increasing  " << face_identification_votes_[updateIndex][previous_label_distribution_[updateIndex][i].label] << " by " << previous_label_distribution_[updateIndex][i].score;
+				//std::cout << " increasing  " << face_identification_votes_[updateIndex][previous_label_distribution_[updateIndex][i].label] << " by " << previous_label_distribution_[updateIndex][i].score;
 				face_identification_votes_[updateIndex][previous_label_distribution_[updateIndex][i].label] += previous_label_distribution_[updateIndex][i].score;
-				std::cout << " new score " << face_identification_votes_[updateIndex][previous_label_distribution_[updateIndex][i].label] << "\n";
+				//std::cout << " new score " << face_identification_votes_[updateIndex][previous_label_distribution_[updateIndex][i].label] << "\n";
 			}
 		}
 		else
 		{
 			for (int i=0; i < src.label_distribution.size(); i++)
 			{
-				std::cout << "increasing  " << face_identification_votes_[updateIndex][src.label_distribution[i].label] << " by " << src.label_distribution[i].score;
+				//std::cout << "increasing  " << face_identification_votes_[updateIndex][src.label_distribution[i].label] << " by " << src.label_distribution[i].score;
 				face_identification_votes_[updateIndex][src.label_distribution[i].label] += src.label_distribution[i].score;
-				std::cout << " new score " << face_identification_votes_[updateIndex][src.label_distribution[i].label] << "\n";
+				//std::cout << " new score " << face_identification_votes_[updateIndex][src.label_distribution[i].label] << "\n";
 			}
 		}
 
@@ -315,6 +316,7 @@ unsigned long DetectionTrackerNode::copyDetection(const cob_people_detection_msg
 		}
 
 		// if the score for the assigned label is higher than the score for UnknownHead increase the score for UnknownHead to the label's score (allows smooth transition if only the head detection is available after recognition)
+		// TODO: how does this help?
 		if (face_identification_votes_[updateIndex][dest.label] > face_identification_votes_[updateIndex]["UnknownHead"])
 		{
 			face_identification_votes_[updateIndex]["UnknownHead"] = face_identification_votes_[updateIndex][dest.label];
@@ -450,8 +452,10 @@ double DetectionTrackerNode::computeFacePositionImageSimilarity(const sensor_msg
 	//std::cout << "blurred thumb percentage difference: " << diff_pixels_perc << "\n";
 
 	// comparison, working on resized greyscale image
-	cv::cvtColor(current_image_thumb, current_image_grey, CV_BGR2GRAY);
-	cv::cvtColor(previous_image_thumb, previous_image_grey, CV_BGR2GRAY);
+	/*cv::cvtColor(current_image_thumb, current_image_grey, CV_BGR2GRAY);
+	cv::cvtColor(previous_image_thumb, previous_image_grey, CV_BGR2GRAY);*/
+	cv::cvtColor(current_image, current_image_grey, CV_BGR2GRAY);
+	cv::cvtColor(previous_image, previous_image_grey, CV_BGR2GRAY);
 
 	// same pixel based tests as before
 	diff_pixels_perc=0;
@@ -780,14 +784,19 @@ unsigned long DetectionTrackerNode::CutImage(cv::Mat& curr, cv::Mat& prev, int d
 
 
 /// Removes multiple instances of a label by renaming the detections with lower score to Unknown.
+/// new functionality: if other labels are available with enough votes accumulated, change to new label instead of Unknown.
 /// @return Return code.
 unsigned long DetectionTrackerNode::removeMultipleInstancesOfLabel()
 {
+	// TODO: change to new label: either invert map and use 2nd Element of sorted-by-value map, or iterate through sorted-by-key map to find second highest (whats more efficient?)
+	// TODO: repeat this Test if a label was changed for the reason above.
 	// check this for each recognized face
 	for (int i=0; i<(int)face_position_accumulator_.size(); i++)
 	{
 		// label of this detection
 		std::string label = face_position_accumulator_[i].label;
+		bool secondChance = true;
+		std::string exchangeLabel = "Unknown";
 
 		// check whether this label has multiple occurrences if it is a real name
 		if (label!="Unknown" && label!="No face")
@@ -801,15 +810,59 @@ unsigned long DetectionTrackerNode::removeMultipleInstancesOfLabel()
 					if (debug_)
 						std::cout << "face_identification_votes_[i][" << label << "] = " << face_identification_votes_[i][label] << " face_identification_votes_[j][" << label << "] = " << face_identification_votes_[j][label] << "\n";
 
-					// correct this label to Unknown when some other instance has a higher score on this label
+					// correct this label when some other instance has a higher score on this label
 					if (face_identification_votes_[i][label] < face_identification_votes_[j][label])
 					{
+						if (secondChance)
+						{
+							std::cout << "2nd Chance happening!";
+							std::cout << "Found duplicate of " << label << " Scores: " << face_identification_votes_[i][label] << " vs " << face_identification_votes_[j][label] << "\n";
+							std::cout << "Stefan Score: " << face_identification_votes_[i]["Stefan"] << "\n";
+							std::cout << "Stefan Votes: " << previous_label_distribution_[i][0].score << previous_label_distribution_[i][1].score << "\n";
+							secondChance = false;
+							// iterate through votes map
+							for (std::map<std::string,double>::iterator it=face_identification_votes_[i].begin(); it!=face_identification_votes_[i].end(); ++it)
+							{
+								// if other label has reasonable chance (don't check for current label, more than 1/3 of current label, 2nd highest voted, more than minimum score to publish)
+								// put it in place of current label and reset j to check if it is available
+								std::cout << "Variables entering if-check: it->first " << it->first << " it->second: " << it->second << " 1/3 * face_identification_votes_[i][label]: " <<  0.3 * face_identification_votes_[i][label] << " min_face_identification_score_to_publish: " << min_face_identification_score_to_publish_ << "\n";
+								if (it->first != label && it->second > 0.3 * face_identification_votes_[i][label] && it->second > min_face_identification_score_to_publish_)
+								{
+									std::cout << "Got past first if! Now checking: " << it->first << face_identification_votes_[i][it->first] << " > " << exchangeLabel << face_identification_votes_[i][exchangeLabel] << " ? \n" ;
+									if (face_identification_votes_[i][it->first] > face_identification_votes_[i][exchangeLabel])
+									{
+										if (it->first != "Unknown" && it->first != "UnknownHead") exchangeLabel = it->first;
+									}
+								}
+							}
+							if (exchangeLabel != "Unknown" && exchangeLabel != "UnknownHead")
+							{
+								std::cout << "Found viable exchange : " << label << " -> " << exchangeLabel << " with score " << face_identification_votes_[i][exchangeLabel] << "\n";
+								label = exchangeLabel;
+								j = 0;
+								continue;
+							}
+							std::cout << "Did not find viable exchange, falling to Unknown \n";
+						}
 						face_position_accumulator_[i].label = "Unknown";
 						// copy score to unknown if it is higher (this enables the display if either the unknown score or label's recognition score were high enough)
+						// TODO: copying highest score to Unknown may cause trouble with future steps
 						if (face_identification_votes_[i][label] > face_identification_votes_[i]["Unknown"])
+						{
 							face_identification_votes_[i]["Unknown"] = face_identification_votes_[i][label];
+
+						}
 					}
 				}
+			}
+			// end of for loop checking for higher voted entries of the same label
+			// -> set face_position_accumulator_[i].label to label.
+			// This will change nothing, if label was not changed by secondChance
+		    // if we found a viable exchangeLabel, face_position_accumulator_[i].label is now set to the next-best label for this detection.
+			if (face_position_accumulator_[i].label != "Unknown" && face_position_accumulator_[i].label != label)
+			{
+				std::cout << "End of removeMultipleInstancesOfLabel. Found exchange: " << face_position_accumulator_[i].label << " had a duplicate, but we found a viable alternative: " << label << "\n";
+				face_position_accumulator_[i].label = label;
 			}
 		}
 	}
@@ -1132,6 +1185,7 @@ void DetectionTrackerNode::inputCallback(const cob_people_detection_msgs::Detect
 						face_position_accumulator_.erase(face_position_accumulator_.begin()+previous_match_index);
 						face_identification_votes_.erase(face_identification_votes_.begin()+previous_match_index);
 						face_image_accumulator_.erase(face_image_accumulator_.begin()+previous_match_index);
+						previous_label_distribution_.erase(previous_label_distribution_.begin()+previous_match_index);
 						std::cout << "deleted entry of last entity at this position \n";
 					}
 					std::cout << " Matching to previous detections was blocked because of low image similarities! ";
