@@ -247,7 +247,7 @@ unsigned long DetectionTrackerNode::copyDetection(const cob_people_detection_msg
 		// apply voting decay with time and find most voted label
 		double max_score = 0;
 
-		// ?? it is no longer necessary to copy the updated score of "UnknownHead" to the dest.label
+		// ? it is no longer necessary to copy the updated score of "UnknownHead" to the dest.label
 		if (src.label == "UnknownHead")
 		{
 			std::cout << "copy " << src.label << " votes ( " << face_identification_votes_[updateIndex][src.label] << " ) to " << dest.label << " ( " << face_identification_votes_[updateIndex][dest.label] <<" )\n";
@@ -258,6 +258,8 @@ unsigned long DetectionTrackerNode::copyDetection(const cob_people_detection_msg
 		dest.label = src.label;
 
 		// decay applied here
+		face_identification_votes_[updateIndex]["Unknown"] *= face_identification_score_decay_rate_;
+		face_identification_votes_[updateIndex]["UnknownHead"] *= face_identification_score_decay_rate_;
 		for (std::map<std::string, double>::iterator face_identification_votes_it=face_identification_votes_[updateIndex].begin(); face_identification_votes_it!=face_identification_votes_[updateIndex].end(); face_identification_votes_it++)
 		{
 			// todo: make the decay time-dependend - otherwise faster computing = faster decay. THIS IS ACTUALLY WRONG as true detections occur with same rate as decay -> so computing power only affects response time to a changed situation
@@ -266,6 +268,10 @@ unsigned long DetectionTrackerNode::copyDetection(const cob_people_detection_msg
 			{
 				face_identification_votes_it->second *= face_identification_score_decay_rate_;
 			}
+			/*else
+			{
+				face_identification_votes_it[updateIndex]["UnknownHead"] *= face_identification_score_decay_rate_;
+			}*/
 			std::string label = face_identification_votes_it->first;
 			if (face_identification_votes_it->second > max_score && (fall_back_to_unknown_identification_==true || (label!="Unknown" && fall_back_to_unknown_identification_==false)) && label!="UnknownHead" /*&& label!="No face"*/)
 			{
@@ -835,13 +841,12 @@ void DetectionTrackerNode::inputCallback(const cob_people_detection_msgs::Detect
 				// TODO: not running copy detection leads to creation of new entry in accumulator.
 				else
 				{
-					if ((face_position_msg_in->detections[current_match_index].pose.pose.position.x - face_position_accumulator_[previous_match_index].pose.pose.position.x)<20)
-					{
-						face_position_accumulator_.erase(face_position_accumulator_.begin()+previous_match_index);
-						face_identification_votes_.erase(face_identification_votes_.begin()+previous_match_index);
-						face_image_accumulator_.erase(face_image_accumulator_.begin()+previous_match_index);
-						std::cout << "deleted entry of last entity at this position \n";
-					}
+
+					face_position_accumulator_.erase(face_position_accumulator_.begin()+previous_match_index);
+					face_identification_votes_.erase(face_identification_votes_.begin()+previous_match_index);
+					face_image_accumulator_.erase(face_image_accumulator_.begin()+previous_match_index);
+					std::cout << "deleted entry of last entity at this position \n";
+
 					std::cout << " Matching to previous detections was blocked because of low image similarities! ";
 					/*if (costs_matrix_image[previous_match_index][current_match_index] > 83)
 					{

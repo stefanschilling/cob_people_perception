@@ -76,9 +76,11 @@
 //#include <sensor_msgs/PointCloud2.h>
 #include <cob_people_detection_msgs/DetectionArray.h>
 
-// rmb-ss
+
 #include <cob_people_detection_msgs/ColorDepthImageArray.h>
-// end rmb-ss
+
+
+
 
 // services
 //#include <cob_people_detection/DetectPeople.h>
@@ -99,6 +101,7 @@
 // boost
 #include <boost/bind.hpp>
 #include <boost/thread/mutex.hpp>
+#include<algorithm>
 
 // external includes
 #include "cob_vision_utils/GlobalDefines.h"

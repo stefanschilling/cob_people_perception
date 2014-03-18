@@ -65,6 +65,7 @@
 #include <cob_people_detection/loadModelAction.h>
 #include <cob_people_detection/getDetectionsAction.h>
 
+
 // services
 #include <cob_people_detection/captureImage.h>
 #include <cob_people_detection/finishRecording.h>

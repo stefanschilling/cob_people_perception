@@ -123,7 +123,7 @@ void ipa_PeopleDetector::FaceRecognizer1D::calcDIFS(cv::Mat& probe_mat,int& minD
     std::multimap<double, int> ordered_neighbors;
     // iterate through face space projections of all sample images, calculates the L2 norm between them and the input probe_mat
     // sets ordered_neighbors [L2norm between sample and input] to the index of the sample
-    // multimap allows for multiple entries per calculated L2norm, in case of same distances.
+    // multimap to allow for multiple entries per calculated L2norm, in case of same distances.
 	for(int r=0;r<model_features_.rows;r++)
 	{
 		cv::Mat model_mat=model_features_.row(r);
@@ -133,19 +133,11 @@ void ipa_PeopleDetector::FaceRecognizer1D::calcDIFS(cv::Mat& probe_mat,int& minD
         //ordered_neighbors[norm] = r;
         ordered_neighbors.insert(std::pair<double,int>(norm,r));
 
-
-        // update minimum distance and index if required
-//        if(norm < minDIFS )
-//        {
-//          minDIFSindex=r;
-//          minDIFS=norm;
-//        }
-        //calculate cost for classification to every class in database
 	}
 
     // update minimum distance and index if required
 	// ordered neighbors is <double, int>, int for index of sample picture, double for distance to probe.
-	// so we ordered neighbors is filled with the distance of all samples to the probe, and from the indeces we know which samples relate to what label/person
+	// ordered neighbors is filled with the distance of all samples to the probe, and from the indices we know which samples relate to what label/person
 	minDIFSindex = ordered_neighbors.begin()->second;
 	minDIFS = ordered_neighbors.begin()->first;
 
@@ -232,8 +224,6 @@ void ipa_PeopleDetector::FaceRecognizer2D::calcDIFS(cv::Mat& probe_mat,int& minD
 {
     minDIFS=std::numeric_limits<double>::max();
     probabilities=cv::Mat::ones(1,num_classes_,CV_64FC1)*0.01;
-    //probabilities=cv::Mat(1,num_classes_,CV_32FC1);
-    //probabilities*=  std::numeric_limits<float>::max();
 
     std::multimap<double, int> ordered_neighbors;
 
@@ -255,7 +245,7 @@ void ipa_PeopleDetector::FaceRecognizer2D::calcDIFS(cv::Mat& probe_mat,int& minD
         // norm is a cv::scalar in this case, not a double.
         // below, its simply cast to double, is that valid for this case? (cv::scalar may be multidimensional, for multi-channel operations)
         // if conversion below is valid, ordered neighbors can be applied as before
-        //ordered_neighbors[(double)norm[0]] = m;
+        // ordered_neighbors[(double)norm[0]] = m;
         ordered_neighbors.insert(std::pair<double,int>((double)norm[0],m));
 
 		/*
@@ -276,7 +266,7 @@ void ipa_PeopleDetector::FaceRecognizer2D::calcDIFS(cv::Mat& probe_mat,int& minD
 	int counter=0;
 	int number_nearest_neighbors_for_pdf = 20;
 
-	//TODO Find out why assertion below now fails and breaks program
+	//TODO Find out what assertion below should be, in current state it fails and stops program
 	//outputs show: model features has size 60, target dim is 15.
 	//assert(target_dim_ == model_features_.size());
 	//std::cout << "model_features_ existiert und hat size: " << model_features_.size() << "\n";
