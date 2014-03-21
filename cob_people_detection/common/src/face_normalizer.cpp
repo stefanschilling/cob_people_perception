@@ -793,36 +793,38 @@ bool FaceNormalizer::synth_head_poses(cv::Mat& img,cv::Mat& depth,std::vector<cv
   return true;
 }
 
-bool FaceNormalizer::frontFaceImage(float& score)
+bool FaceNormalizer::frontFaceImage(cv::Mat& img,cv::Mat& depth, float& score)
 {
-	std::string path="/home/rmb-ss/.ros/cob_people_detection/files/training_data";
+	// read out existing training data instead?
+	/*std::string path="/home/rmb-ss/.ros/cob_people_detection/files/training_data";
 	cv::Mat img_color;
 	cv::Mat img_depth;
 	std::cout << "doing stuff!\n";
 	for (int i; i<20; i++)
 	{
-		std::cout << "doing for!\n";
-		cv::FileStorage fs(path,FileStorage::READ);
-		fs["depth"]>> img_depth;
-		fs["color"]>> img_color;
-		fs.release();
-
-		// detect features
-		if(!features_from_color(img_color))return false;
-		if(debug_)dump_features(img_color);
-
-
-		if(!features_from_depth(img_depth)) return false;
-
-		Eigen::Vector3f temp,x_new,y_new,z_new,lefteye,nose,righteye,eye_middle;
-
-		nose<<f_det_xyz_.nose.x,f_det_xyz_.nose.y,f_det_xyz_.nose.z;
-		lefteye<<f_det_xyz_.lefteye.x,f_det_xyz_.lefteye.y,f_det_xyz_.lefteye.z;
-		righteye<<f_det_xyz_.righteye.x,f_det_xyz_.righteye.y,f_det_xyz_.righteye.z;
-		eye_middle=lefteye+((righteye-lefteye)*0.5);
-
-		std::cout << "Detected coordinates of features: \nNose: " << nose[0] << " " << nose[1] << " " << nose[2] << "\nLeft Eye " << lefteye[0] << " " << lefteye[1] << " " << lefteye[2] << "\nRight Eye " << righteye[0] << " " << righteye[1] << " " << righteye[2]<< "\n";
 	}
+	std::cout << "doing for!\n";
+	cv::FileStorage fs(path,FileStorage::READ);
+	fs["depth"]>> img_depth;
+	fs["color"]>> img_color;
+	fs.release();*/
+
+	// detect features
+	if(!features_from_color(img))return false;
+	if(debug_)dump_features(img);
+
+
+	if(!features_from_depth(depth)) return false;
+
+	Eigen::Vector3f temp,x_new,y_new,z_new,lefteye,nose,righteye,eye_middle;
+
+	nose<<f_det_xyz_.nose.x,f_det_xyz_.nose.y,f_det_xyz_.nose.z;
+	lefteye<<f_det_xyz_.lefteye.x,f_det_xyz_.lefteye.y,f_det_xyz_.lefteye.z;
+	righteye<<f_det_xyz_.righteye.x,f_det_xyz_.righteye.y,f_det_xyz_.righteye.z;
+	eye_middle=lefteye+((righteye-lefteye)*0.5);
+
+	std::cout << "Detected coordinates of features: \nNose: " << nose[0] << " " << nose[1] << " " << nose[2] << "\nLeft Eye " << lefteye[0] << " " << lefteye[1] << " " << lefteye[2] << "\nRight Eye " << righteye[0] << " " << righteye[1] << " " << righteye[2]<< "\n";
+
 }
 
 bool FaceNormalizer::rotate_head(cv::Mat& img,cv::Mat& depth)

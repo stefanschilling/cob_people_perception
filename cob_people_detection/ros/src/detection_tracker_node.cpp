@@ -256,22 +256,24 @@ unsigned long DetectionTrackerNode::copyDetection(const cob_people_detection_msg
 
 
 		dest.label = src.label;
+		bool only_decay_unknown=false;
+		if (src.label == "UnknownHead")
+			only_decay_unknown = true;
 
 		// decay applied here
-		face_identification_votes_[updateIndex]["Unknown"] *= face_identification_score_decay_rate_;
-		face_identification_votes_[updateIndex]["UnknownHead"] *= face_identification_score_decay_rate_;
 		for (std::map<std::string, double>::iterator face_identification_votes_it=face_identification_votes_[updateIndex].begin(); face_identification_votes_it!=face_identification_votes_[updateIndex].end(); face_identification_votes_it++)
 		{
 			// todo: make the decay time-dependend - otherwise faster computing = faster decay. THIS IS ACTUALLY WRONG as true detections occur with same rate as decay -> so computing power only affects response time to a changed situation
 			// Votes for UnknownHead will be preserved rather than decayed, to keep tracking without continuous face recognition.
-			if (src.label != "UnknownHead")
+			if (!(only_decay_unknown))
 			{
 				face_identification_votes_it->second *= face_identification_score_decay_rate_;
 			}
-			/*else
+			else
 			{
-				face_identification_votes_it[updateIndex]["UnknownHead"] *= face_identification_score_decay_rate_;
-			}*/
+				if (face_identification_votes_it->first == "Unknown" || face_identification_votes_it->first == "UnknownHead")
+					face_identification_votes_it->second *= face_identification_score_decay_rate_;
+			}
 			std::string label = face_identification_votes_it->first;
 			if (face_identification_votes_it->second > max_score && (fall_back_to_unknown_identification_==true || (label!="Unknown" && fall_back_to_unknown_identification_==false)) && label!="UnknownHead" /*&& label!="No face"*/)
 			{
