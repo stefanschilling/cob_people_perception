@@ -824,7 +824,8 @@ bool FaceNormalizer::frontFaceImage(cv::Mat& img,cv::Mat& depth, float& score)
 	eye_middle=lefteye+((righteye-lefteye)*0.5);
 
 	std::cout << "Detected coordinates of features: \nNose: " << nose[0] << " " << nose[1] << " " << nose[2] << "\nLeft Eye " << lefteye[0] << " " << lefteye[1] << " " << lefteye[2] << "\nRight Eye " << righteye[0] << " " << righteye[1] << " " << righteye[2]<< "\n";
-
+	score = (lefteye[1]-righteye[1])*(lefteye[1]-righteye[1]) + (lefteye[2]-righteye[2])*(lefteye[2]-righteye[2]) + (eye_middle[0] - nose [0])*(eye_middle[0] - nose [0]);
+	// ^ score 0 for ideal image. eyes same height, same distance from camera and nose centered between eyes
 }
 
 bool FaceNormalizer::rotate_head(cv::Mat& img,cv::Mat& depth)
