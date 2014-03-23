@@ -519,6 +519,8 @@ void FaceRecognizerNode::facePositionsCallback(const cob_people_detection_msgs::
 				det.detector = "face";
 				// header
 				det.header = face_positions->header;
+				// label score pairs:
+				//TODO det.label_distribution = ;
 				// add to message
 				detection_msg.detections.push_back(det);
 			}

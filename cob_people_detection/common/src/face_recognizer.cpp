@@ -521,7 +521,8 @@ unsigned long ipa_PeopleDetector::FaceRecognizer::recognizeFace(cv::Mat& color_i
 		{
 
       int res_label;
-      eff_color->classifyImage(resized_8U1,res_label);
+      cv::Mat label_probability;
+      eff_color->classifyImage(resized_8U1,res_label,label_probability);
       if(res_label==-1)
       {
         identification_labels.push_back("Unknown Face");

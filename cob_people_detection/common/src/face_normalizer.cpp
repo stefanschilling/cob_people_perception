@@ -1425,7 +1425,7 @@ bool FaceNormalizer::projectPointCloud(cv::Mat& img, cv::Mat& depth, cv::Mat& im
        pc_ptr++;
       }
 
-   occ_grid=occ_grid;
+   //occ_grid=occ_grid;
    img_cum=img_cum / (occ_grid.mul(occ_grid2)-1);
    img_cum.convertTo(img_cum,CV_8UC1);
    cv::add(img_res,img_cum,img_res);
