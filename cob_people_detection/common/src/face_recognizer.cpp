@@ -215,9 +215,18 @@ unsigned long ipa_PeopleDetector::FaceRecognizer::addFace(cv::Mat& color_image, 
 	cv::Mat roi_depth_xyz = depth_image(face_bounding_box).clone();
 	cv::Size norm_size=cv::Size(m_norm_size,m_norm_size);
 	cv::Mat roi_depth;
+	float score;
 	//if(!face_normalizer_.normalizeFace(roi_color,roi_depth_xyz,norm_size)) ;
 	face_normalizer_.recordFace(roi_color,roi_depth_xyz);
 	if(!face_normalizer_.normalizeFace(roi_color,roi_depth_xyz,norm_size))
+		face_normalizer_.frontFaceImage(roi_color,roi_depth_xyz,score);
+		if (score < 100)
+		{
+			std::cout << "this might be a good image to synth from? score: " << score << "\n";
+			namedWindow( "Display window", WINDOW_AUTOSIZE );// Create a window for display.
+			cv::imshow( "Display window", roi_color);
+			cv::waitKey;
+		}
 		return ipa_Utils::RET_FAILED;
 
 	// Save image
@@ -499,15 +508,13 @@ unsigned long ipa_PeopleDetector::FaceRecognizer::recognizeFace(cv::Mat& color_i
 	for(int i=0; i<(int)face_coordinates.size(); i++)
 	{
 		cv::Rect face = face_coordinates[i];
-    cv::Size norm_size=cv::Size(m_norm_size,m_norm_size);
+		cv::Size norm_size=cv::Size(m_norm_size,m_norm_size);
 		convertAndResize(color_image, resized_8U1, face, norm_size);
 
+		double DFFS;
+		resized_8U1.convertTo(resized_8U1,CV_64FC1);
 
-
-     double DFFS;
-     resized_8U1.convertTo(resized_8U1,CV_64FC1);
-
-      cv::Mat coeff_arr;
+		cv::Mat coeff_arr;
         //eff_color.projectToSubspace(resized_8U1,coeff_arr,DFFS);
 
 		if (m_debug) std::cout << "distance to face space: " << DFFS << std::endl;
@@ -520,6 +527,7 @@ unsigned long ipa_PeopleDetector::FaceRecognizer::recognizeFace(cv::Mat& color_i
 		else
 		{
 
+<<<<<<< HEAD
       int res_label;
       cv::Mat label_probability;
       eff_color->classifyImage(resized_8U1,res_label,label_probability);
@@ -531,14 +539,29 @@ unsigned long ipa_PeopleDetector::FaceRecognizer::recognizeFace(cv::Mat& color_i
       {
         identification_labels.push_back(m_current_label_set[res_label]);
       }
+=======
+		int res_label;
+		cv::Mat classification_probabilities;
+		eff_color->classifyImage(resized_8U1,res_label,classification_probabilities);
+		if(res_label==-1)
+		{
+			identification_labels.push_back("Unknown Face");
+		}
+		else
+		{
+
+			identification_labels.push_back(m_current_label_set[res_label]);
+			//TODO convert classification_probabilities to string and float entries for labels+scores
+>>>>>>> ad8e284fa1d92175410e00472106cf32066f065e
 		}
 	}
+}
 
 	return ipa_Utils::RET_OK;
 }
 
 
-unsigned long ipa_PeopleDetector::FaceRecognizer::recognizeFace(cv::Mat& color_image, cv::Mat& depth_image, std::vector<cv::Rect>& face_coordinates, std::vector<std::string>& identification_labels)
+unsigned long ipa_PeopleDetector::FaceRecognizer::recognizeFace(cv::Mat& color_image, cv::Mat& depth_image, std::vector<cv::Rect>& face_coordinates, std::vector<std::string>& identification_labels, std::vector<std::string>& labels, std::vector<float>& scores)
 {
 	timeval t1, t2;
 	gettimeofday(&t1, NULL);
@@ -553,6 +576,11 @@ unsigned long ipa_PeopleDetector::FaceRecognizer::recognizeFace(cv::Mat& color_i
 	}
 
 	identification_labels.clear();
+	//clear inner label and score vectors, set their size according to label set
+	labels.resize(m_current_label_set.size());
+	scores.resize(m_current_label_set.size());
+	labels.clear();
+	scores.clear();
 
 	cv::Size resized_size(m_eigenvectors[0].size());
 	for (int i = 0; i < (int) face_coordinates.size(); i++)
@@ -570,12 +598,15 @@ unsigned long ipa_PeopleDetector::FaceRecognizer::recognizeFace(cv::Mat& color_i
 		cv::Mat temp;
 		color_crop.convertTo(color_crop, CV_64FC1);
 
+		// variables here end in _color to signal use of color images
 		int res_label_color, res_label_depth;
+		cv::Mat classification_probabilities;
 		std::string class_color;
+		std::string probable_labels;
 
 		if (eff_color->trained_)
 		{
-			eff_color->classifyImage(color_crop, res_label_color);
+			eff_color->classifyImage(color_crop, res_label_color, classification_probabilities);
 			if (res_label_color == -1)
 			{
 				class_color = "Unknown";
@@ -583,6 +614,12 @@ unsigned long ipa_PeopleDetector::FaceRecognizer::recognizeFace(cv::Mat& color_i
 			else
 			{
 				class_color = m_current_label_set[res_label_color];
+				// turn classification_probabilities into string and float entries for labels and scores vector
+				for (int i=0; i<classification_probabilities.cols; i++)
+				{
+					labels.push_back(m_current_label_set[i]);
+					scores.push_back(classification_probabilities.at<double>(i));
+				}
 			}
 		}
 

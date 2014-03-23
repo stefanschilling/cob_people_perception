@@ -74,10 +74,8 @@
 #include <sensor_msgs/Image.h>
 //#include <sensor_msgs/PointCloud2.h>
 #include <cob_people_detection_msgs/DetectionArray.h>
-
-// rmb-ss
 #include <cob_people_detection_msgs/ColorDepthImageArray.h>
-// end rmb-ss
+
 
 // services
 //#include <cob_people_detection/DetectPeople.h>
@@ -117,10 +115,7 @@ DetectionTrackerNode::DetectionTrackerNode(ros::NodeHandle nh)
 {
 	it_ = 0;
 	sync_input_2_ = 0;
-
-	// rmb-ss
 	sync_input_2a_ = 0;
-	// end rmb-ss
 
 	// parameters
 	std::cout << "\n---------------------------\nPeople Detection Parameters:\n---------------------------\n";
@@ -157,15 +152,14 @@ DetectionTrackerNode::DetectionTrackerNode(ros::NodeHandle nh)
 	people_segmentation_image_sub_.subscribe(*it_, "people_segmentation_image", 1);
 	face_position_subscriber_.subscribe(node_handle_, "face_position_array_in", 1);
 
-	// rmb-ss
+	// TODO: explore use of original image and head position values from face_positions to compare similar images at all times.
+	// due to how the program works before this point, received images come as either cut-out faces or including background
 	face_image_subscriber_.subscribe(node_handle_, "/cob_people_detection/face_detector/face_positions", 1);
-	// end rmb-ss
 
 	// input synchronization
 	sensor_msgs::Image::ConstPtr nullPtr;
-	// rmb-ss
 	cob_people_detection_msgs::ColorDepthImageArray::ConstPtr nullPtrCDI;
-	// end rmb-ss
+
 
 	if (use_people_segmentation_ == true)
 	{
@@ -194,9 +188,8 @@ DetectionTrackerNode::~DetectionTrackerNode()
 {
 	if (it_ != 0) delete it_;
 	if (sync_input_2_ != 0) delete sync_input_2_;
-	// rmb-ss
 	if (sync_input_2a_ != 0) delete sync_input_2a_;
-	// end rmb-ss
+
 }
 
 /// Converts a color image message to cv::Mat format.
@@ -238,43 +231,49 @@ unsigned long DetectionTrackerNode::copyDetection(const cob_people_detection_msg
 	// person ID
 	if (update==true)
 	{
-		// update label history
-		// if (src.label!="No face")
-		// {
-		if (face_identification_votes_[updateIndex].find(src.label) == face_identification_votes_[updateIndex].end())
+		// update label history for recognized detections
+		if (src.label != "UnknownHead")
 		{
-			face_identification_votes_[updateIndex][src.label] = 1.0;
-			//std::cout << "setting votes to 1 \n";
-		}
-		else
-		{
-			face_identification_votes_[updateIndex][src.label] += 1.0;
-			//std::cout << "increasing votes by 1 for - " << src.label << " - votes are now - " << face_identification_votes_[updateIndex][src.label] << "\n";
-
+			for (int i=0; i < src.label_distribution.size(); i++)
+			{
+				//std::cout << "increasing  " << face_identification_votes_[updateIndex][src.label_distribution[i].label] << " by " << src.label_distribution[i].score;
+				face_identification_votes_[updateIndex][src.label_distribution[i].label] += src.label_distribution[i].score;
+				//std::cout << " new score " << face_identification_votes_[updateIndex][src.label_distribution[i].label] << "\n";
+			}
 		}
 
-		// }
+		//std::cout << src.label_distribution[0].label << "\n";
 
 		// apply voting decay with time and find most voted label
 		double max_score = 0;
+
+		// ? it is no longer necessary to copy the updated score of "UnknownHead" to the dest.label
 		if (src.label == "UnknownHead")
 		{
-			//std::cout << "copy src votes to dest votes for unknown head \n";
+			std::cout << "copy " << src.label << " votes ( " << face_identification_votes_[updateIndex][src.label] << " ) to " << dest.label << " ( " << face_identification_votes_[updateIndex][dest.label] <<" )\n";
 			face_identification_votes_[updateIndex][dest.label] = face_identification_votes_[updateIndex][src.label];
 		}
 
-		//std::cout << "copy src.label to dest.label : " << dest.label << " = " << src.label << "\n";
-		//std::cout << " - votes are now - dest: " << face_identification_votes_[updateIndex][src.label] << "\n" << "src: " << face_identification_votes_[updateIndex][dest.label] << "\n";
+
 		dest.label = src.label;
+		bool only_decay_unknown=false;
+		if (src.label == "UnknownHead")
+			only_decay_unknown = true;
 
-		//std::cout << "copy src votes to dest votes \n";
-		//face_identification_votes_[updateIndex][dest.label] = face_identification_votes_[updateIndex][src.label];
-
-
+		// decay applied here
 		for (std::map<std::string, double>::iterator face_identification_votes_it=face_identification_votes_[updateIndex].begin(); face_identification_votes_it!=face_identification_votes_[updateIndex].end(); face_identification_votes_it++)
 		{
 			// todo: make the decay time-dependend - otherwise faster computing = faster decay. THIS IS ACTUALLY WRONG as true detections occur with same rate as decay -> so computing power only affects response time to a changed situation
-			face_identification_votes_it->second *= face_identification_score_decay_rate_;
+			// Votes for UnknownHead will be preserved rather than decayed, to keep tracking without continuous face recognition.
+			if (!(only_decay_unknown))
+			{
+				face_identification_votes_it->second *= face_identification_score_decay_rate_;
+			}
+			else
+			{
+				if (face_identification_votes_it->first == "Unknown" || face_identification_votes_it->first == "UnknownHead")
+					face_identification_votes_it->second *= face_identification_score_decay_rate_;
+			}
 			std::string label = face_identification_votes_it->first;
 			if (face_identification_votes_it->second > max_score && (fall_back_to_unknown_identification_==true || (label!="Unknown" && fall_back_to_unknown_identification_==false)) && label!="UnknownHead" /*&& label!="No face"*/)
 			{
@@ -284,6 +283,7 @@ unsigned long DetectionTrackerNode::copyDetection(const cob_people_detection_msg
 		}
 
 		// if the score for the assigned label is higher than the score for UnknownHead increase the score for UnknownHead to the label's score (allows smooth transition if only the head detection is available after recognition)
+		// TODO: how does this help?
 		if (face_identification_votes_[updateIndex][dest.label] > face_identification_votes_[updateIndex]["UnknownHead"])
 		{
 			face_identification_votes_[updateIndex]["UnknownHead"] = face_identification_votes_[updateIndex][dest.label];
@@ -357,9 +357,7 @@ double DetectionTrackerNode::computeFacePositionDistance(const cob_people_detect
 	return sqrt(dx*dx+dy*dy+dz*dz);
 }
 
-// rmb-ss
-
-// alternative msg to mat converter, preserving the original encoding
+// alternative rosmsg to cv mat converter, preserving the original encoding
 unsigned long DetectionTrackerNode::convertColorImageMessageToMatAlt(const sensor_msgs::Image::ConstPtr& image_msg, cv_bridge::CvImageConstPtr& image_ptr, cv::Mat& image)
 {
 	try
@@ -381,51 +379,25 @@ void voidDeleter(const sensor_msgs::Image* const) {}
 // receive color_image messages, convert to cvmat, compare cvmats
 double DetectionTrackerNode::computeFacePositionImageSimilarity(const sensor_msgs::Image& previous_image_msg, const sensor_msgs::Image& current_image_msg)
 {
-	float diff_pixels_perc=0;
-	int diff_threshold = 16;
-	int distance =0;
 	double histocomp_temp =0;
 	cv_bridge::CvImageConstPtr previous_image_ptr;
 	cv::Mat previous_image;
 	cv_bridge::CvImageConstPtr current_image_ptr;
 	cv::Mat current_image;
 
-	cv::Mat current_image_thumb, previous_image_thumb;
 	cv::Mat current_image_grey, previous_image_grey;
-	cv::Mat previous_image_hsv, current_image_hsv;
-	cv::Mat current_image_roi, previous_image_roi;
 
 	// convert old and current image to cvmats using alternative image converter (preserves image encoding of message)
-
 	sensor_msgs::ImageConstPtr previous_image_msg_ptr = boost::shared_ptr<sensor_msgs::Image const>(&(previous_image_msg), voidDeleter);
 	convertColorImageMessageToMatAlt(previous_image_msg_ptr, previous_image_ptr, previous_image);
 
 	sensor_msgs::ImageConstPtr current_image_msg_ptr = boost::shared_ptr<sensor_msgs::Image const>(&(current_image_msg), voidDeleter);
 	convertColorImageMessageToMatAlt(current_image_msg_ptr, current_image_ptr, current_image);
 
-	// comparison, number of significantly changed pixels on resized images
-	// resize images to managable size
-
-	cv::resize(current_image, current_image_thumb, cv::Size(current_image.rows/2,current_image.cols/2));
-	cv::resize(previous_image, previous_image_thumb, cv::Size(current_image.rows/2,current_image.cols/2));
-
-	//std::cout << "size of images after resizing: " << current_image.rows/2 << " x " << current_image.cols/2 << "\n";
-	//cv::GaussianBlur(current_image_thumb, current_image_thumb, cv::Size(5,5), 0, 0, cv::BORDER_DEFAULT);
-	//cv::GaussianBlur(current_image_thumb, current_image_thumb, cv::Size(5,5), 0, 0, cv::BORDER_DEFAULT);
-	//cv::GaussianBlur(previous_image_thumb, previous_image_thumb, cv::Size(5,5), 0, 0, cv::BORDER_DEFAULT);
-	//cv::GaussianBlur(previous_image_thumb, previous_image_thumb, cv::Size(5,5), 0, 0, cv::BORDER_DEFAULT);
-
-	//PixelSimilarity(current_image_thumb, previous_image_thumb, diff_threshold, diff_pixels_perc, 3);
-	//std::cout << "blurred thumb percentage difference: " << diff_pixels_perc << "\n";
-
-	// comparison, working on resized greyscale image
-	cv::cvtColor(current_image_thumb, current_image_grey, CV_BGR2GRAY);
-	cv::cvtColor(previous_image_thumb, previous_image_grey, CV_BGR2GRAY);
-
-	// same pixel based tests as before
-	diff_pixels_perc=0;
-	//PixelSimilarity(current_image_grey, previous_image_grey, diff_threshold, diff_pixels_perc);
-	//std::cout << "greyscale percentage difference: " << diff_pixels_perc << "\n";
+	// comparison, working on greyscale image
+	// TODO: see if comparing color images improves results
+	cv::cvtColor(current_image, current_image_grey, CV_BGR2GRAY);
+	cv::cvtColor(previous_image, previous_image_grey, CV_BGR2GRAY);
 
 	cv::Mat current_image_olbp;
 	cv::Mat previous_image_olbp;
@@ -433,29 +405,6 @@ double DetectionTrackerNode::computeFacePositionImageSimilarity(const sensor_msg
 	OLBP_(previous_image_grey, previous_image_olbp);
 	//cv::imshow("OLBP Test",current_image_olbp);
 	//cv::imshow("OLBP Test 2", previous_image_olbp);
-
-	//PixelSimilarity(current_image_olbp, previous_image_olbp, diff_threshold, diff_pixels_perc);
-	//std::cout << "olbp percentage difference: " << diff_pixels_perc << "\n";
-
-	cv::Mat curr_cut = current_image;
-	cv::Mat prev_cut = previous_image;
-	int dec_x, dec_y;
-	dec_x = curr_cut.cols-prev_cut.cols;
-	dec_y = curr_cut.rows-prev_cut.rows;
-	//CutImage(curr_cut, prev_cut, dec_x, dec_y);
-
-	//cv::resize(curr_cut, curr_cut, cv::Size(curr_cut.rows/2,curr_cut.cols/2));
-	//cv::resize(prev_cut, prev_cut, cv::Size(prev_cut.rows/2,prev_cut.cols/2));
-	//cv::GaussianBlur(curr_cut, curr_cut, cv::Size(5,5), 0, 0, cv::BORDER_DEFAULT);
-	//cv::GaussianBlur(curr_cut, curr_cut, cv::Size(5,5), 0, 0, cv::BORDER_DEFAULT);
-	//cv::GaussianBlur(prev_cut, prev_cut, cv::Size(5,5), 0, 0, cv::BORDER_DEFAULT);
-	//cv::GaussianBlur(prev_cut, prev_cut, cv::Size(5,5), 0, 0, cv::BORDER_DEFAULT);
-
-	//PixelSimilarity(curr_cut, prev_cut, diff_threshold, diff_pixels_perc);
-	//std::cout << "cut color percentage difference: " << diff_pixels_perc << "\n";
-
-	//PixelEuclidianDistance(curr_cut, prev_cut, distance, 3);
-	//std::cout << "cut color euclidian distance: " << distance << "\n";
 
 	// fill histrogramvector with histograms of face regions. regions are square, number of regions must be a squared int.
 	// histogramvect_ then is filled with image 1 and 2 histograms of regions, i.e.:
@@ -502,114 +451,7 @@ double DetectionTrackerNode::computeFacePositionImageSimilarity(const sensor_msg
 	//std::cout << "divided by number of regions: " << histocomp_res << "\n";
 	histogramvect_.clear();
 
-	// comparison, working on padded images, borders added to match images in size
-//	inc_x = current_image.cols - previous_image.cols;
-//	inc_y = current_image.rows - previous_image.rows;
-//	PadImage(current_image, previous_image, inc_x, inc_y);
-//
-//	diff_pixels_perc=0;
-//	PixelSimilarity(current_image, previous_image, diff_threshold, diff_pixels_perc);
-//	std::cout << "fullsize padded percentage difference: " << diff_pixels_perc << "\n";
-//
-//	cv::resize(current_image, current_image_thumb, cv::Size(current_image.rows/2,current_image.cols/2));
-//	cv::resize(previous_image, previous_image_thumb, cv::Size(current_image.rows/2,current_image.cols/2));
-//	diff_pixels_perc=0;
-//	PixelSimilarity(current_image_thumb, previous_image_thumb, diff_threshold, diff_pixels_perc);
-//	std::cout << "thumb padded percentage difference: " << diff_pixels_perc <<  "\n";
-//
-//	cv::cvtColor(current_image_thumb, current_image_hsv, CV_RGB2HSV);
-//	cv::cvtColor(previous_image_thumb, previous_image_hsv, CV_RGB2HSV);
-//	diff_pixels_perc=0;
-//	PixelSimilarity(current_image, previous_image, diff_threshold, diff_pixels_perc, 2);
-//	std::cout << "hsv 2 channel difference: " << diff_pixels_perc << "\n";
-
 	return histocomp_res;
-}
-
-unsigned long DetectionTrackerNode::PadImage(cv::Mat& curr, cv::Mat& prev, int inc_x, int inc_y)
-{
-	int left = inc_x/2;
-	int right = inc_x/2 + inc_x%2;
-	int top = inc_y/2;
-	int bottom = inc_y/2 + inc_y%2;
-	if (inc_x >= 0 && inc_y >= 0)
-	{
-		cv::copyMakeBorder(prev, prev, top, bottom, left, right, cv::BORDER_REPLICATE);
-	}
-	else if (inc_x >= 0 && inc_y <= 0)
-	{
-		cv::copyMakeBorder(curr, curr, -top, -bottom, 0, 0, cv::BORDER_REPLICATE);
-		cv::copyMakeBorder(prev, prev, 0, 0, left, right, cv::BORDER_REPLICATE);
-	}
-	else if (inc_x <= 0 && inc_y >= 0)
-	{
-		cv::copyMakeBorder(curr, curr, 0, 0, -left, -right, cv::BORDER_REPLICATE);
-		cv::copyMakeBorder(prev, prev, top, bottom, 0, 0, cv::BORDER_REPLICATE);
-	}
-	else
-	{
-		cv::copyMakeBorder(prev, prev, -top, -bottom, -left, -right, cv::BORDER_REPLICATE);
-	}
-	return ipa_Utils::RET_OK;
-}
-
-unsigned long DetectionTrackerNode::PixelSimilarity(cv::Mat curr, cv::Mat prev, int threshold, float& diff_perc, int chans)
-{
-	float diff_pixels =0;
-	float iterations = 0;
-	// pixel-wise comparison of images, add to diff_pixel if value at coordinate is changed by more than the set threshold
-	for (int i=0; i<curr.cols; i++)
-	{
-		for (int j=0; j<curr.rows; j++)
-		{
-			for (int n=0; n<chans; n++)
-			{
-				iterations++;
-				if (curr.at<cv::Vec3b>(i,j)[n]-prev.at<cv::Vec3b>(i,j)[n] > threshold || curr.at<cv::Vec3b>(i,j)[n]-prev.at<cv::Vec3b>(i,j)[n] < -threshold)
-				{
-					diff_pixels++;
-					break;
-				}
-			}
-		}
-	}
-	// percentage of different pixels changed/total
-	diff_perc = diff_pixels/(prev.cols*prev.rows);
-
-	//std::cout << " number of pixels: " << prev.cols*prev.rows << "went through this many iterations: " << iterations << " and found that many different pixels: " << diff_pixels <<  "\n";
-	//std::cout << "diff perc in function: " <<  diff_perc << "\n";
-	return ipa_Utils::RET_OK;
-}
-
-unsigned long DetectionTrackerNode::PixelEuclidianDistance(cv::Mat curr, cv::Mat prev, int& distance, int chans)
-{
-	distance =0;
-	int b1,b2;
-	cv::Vec3b intensity1, intensity2;
-	for (int i=0; i<curr.cols; i++)
-	{
-		for (int j=0; j<curr.rows; j++)
-		{
-			for (int n=0; n<chans; n++)
-			{
-				b1 = curr.at<cv::Vec3b>(i, j)[n];
-				b2 = prev.at<cv::Vec3b>(i, j)[n];
-
-				//std::cout << b1 << " - " << b2 <<"\n";
-
-				distance += (b1 - b2)*(b1-b2);
-				//std::cout << "b1 - b2 : " << b1 << "-" <<b2 << "=" << distance << "\n";
-				if (distance > 100000000)
-				{
-					std::cout << " Distance is large. ";
-					distance = 20000;
-					return ipa_Utils::RET_OK;
-				}
-			}
-		}
-	}
-	distance = sqrt(distance);
-	return ipa_Utils::RET_OK;
 }
 
 // Binary Pattern
@@ -703,55 +545,14 @@ unsigned long DetectionTrackerNode::OLBPHistogram(cv::Mat src, int regions)
 	return ipa_Utils::RET_OK;
 }
 
-unsigned long DetectionTrackerNode::CutImage(cv::Mat& curr, cv::Mat& prev, int dec_x, int dec_y)
-{
-	int a,b,c,d;
-	int w, x, y, z;
-	if (dec_x >= 0)
-	{
-		a=dec_x/2+5;
-		c=curr.cols-dec_x-5;
-		w=5;
-		y=prev.cols-5;
-	}
-	else if (dec_x < 0)
-	{
-		a=5;
-		c=curr.cols-5;
-		w=5-dec_x/2;
-		y=prev.cols-5+dec_x;
-	}
-	if (dec_y >=0)
-	{
-		b=dec_y/2+5;
-		d=curr.rows-dec_y-5;
-		x=5;
-		z=prev.rows-5;
-	}
-	else
-	{
-		b=5;
-		d=curr.rows-5;
-		x=5-dec_y/2;
-		z=prev.rows-5+dec_y;
-	}
-	cv::Rect currRoi(a,b,c,d);
-	cv::Rect prevRoi(w,x,y,z);
-
-	curr = curr(currRoi);
-	prev = prev(prevRoi);
-
-	return ipa_Utils::RET_OK;
-}
-
-
-//end rmb-ss
-
 
 /// Removes multiple instances of a label by renaming the detections with lower score to Unknown.
+/// new functionality: if other labels are available with enough votes accumulated, change to new label instead of Unknown.
 /// @return Return code.
 unsigned long DetectionTrackerNode::removeMultipleInstancesOfLabel()
 {
+	// TODO: change to new label: either invert map and use 2nd Element of sorted-by-value map, or iterate through sorted-by-key map to find second highest (whats more efficient?)
+	// TODO: repeat this Test if a label was changed for the reason above.
 	// check this for each recognized face
 	for (int i=0; i<(int)face_position_accumulator_.size(); i++)
 	{
@@ -769,14 +570,12 @@ unsigned long DetectionTrackerNode::removeMultipleInstancesOfLabel()
 				{
 					if (debug_)
 						std::cout << "face_identification_votes_[i][" << label << "] = " << face_identification_votes_[i][label] << " face_identification_votes_[j][" << label << "] = " << face_identification_votes_[j][label] << "\n";
-
-					// correct this label to Unknown when some other instance has a higher score on this label
+					// correct this label when some other instance has a higher score on this label
 					if (face_identification_votes_[i][label] < face_identification_votes_[j][label])
 					{
 						face_position_accumulator_[i].label = "Unknown";
 						// copy score to unknown if it is higher (this enables the display if either the unknown score or label's recognition score were high enough)
-						if (face_identification_votes_[i][label] > face_identification_votes_[i]["Unknown"])
-							face_identification_votes_[i]["Unknown"] = face_identification_votes_[i][label];
+						face_identification_votes_[i]["Unknown"] = face_identification_votes_[i][label];
 					}
 				}
 			}
@@ -846,34 +645,11 @@ void DetectionTrackerNode::inputCallback(const cob_people_detection_msgs::Detect
 				face_position_accumulator_.erase(face_position_accumulator_.begin()+i);
 				face_identification_votes_.erase(face_identification_votes_.begin()+i);
 				face_image_accumulator_.erase(face_image_accumulator_.begin()+i);
-				std::cout << "image accu size: " << face_image_accumulator_.size() << " position accu size: " << face_position_accumulator_.size() << "\n";
+				//std::cout << "image accu size: " << face_image_accumulator_.size() << " position accu size: " << face_position_accumulator_.size() << "\n";
 			}
 		}
 		if (debug_)
 			std::cout << "Old face positions deleted.\n";
-		// rmb-ss
-		// problem: color image header is not identical with header of color depth image,
-//		for (int i=(int)face_image_accumulator_.size()-1;i>=0;i--)
-//			{
-//				// remove old face_images -> header?
-//				std::cout << "timestamp of incoming cdi msg: "<< face_image_msg_in->header.stamp << "timestamp of message in accumulator: " << face_image_accumulator_[i].header.stamp <<"\n";
-//				if ((ros::Time::now()-face_image_accumulator_[i].header.stamp) > timeSpan)
-//				{
-//					face_image_accumulator_.erase(face_image_accumulator_.begin()+1);
-//				}
-//			}
-//
-//		for (int i=(int)face_image_array_accumulator2_.size()-1;i>=0;i--)
-//					{
-//						// remove old face_images -> header?
-//						std::cout << "timestamp of incoming cdi array msg: "<< face_image_msg_in->header.stamp << " timestamp of array message in accumulator: " << face_image_array_accumulator2_[i].header.stamp <<"\n";
-//						if ((ros::Time::now()-face_image_array_accumulator2_[i].header.stamp) > timeSpan)
-//						{
-//							face_image_array_accumulator2_.erase(face_image_array_accumulator2_.begin()+1);
-//						}
-//					}
-		// end rmb-ss
-
 	}
 
 	// verify face detections with people segmentation if enabled -> only accept detected faces if a person is segmented at that position
@@ -996,15 +772,17 @@ void DetectionTrackerNode::inputCallback(const cob_people_detection_msgs::Detect
 		{
 			for (unsigned int i=0; i<face_detection_indices.size(); i++)
 			{
-				// rmb-ss, added + computeFacePositionImageSimilarity.
 				// calculate and save image similarity separately, then add it to cost matrix.
 				//std::cout << "now comparing previous " << face_position_accumulator_[previous_det].label << " and " << face_position_msg_in->detections[face_detection_indices[i]].label << "\n";
-//				costs_matrix[previous_det][i] = 100*computeFacePositionDistance(face_position_accumulator_[previous_det], face_position_msg_in->detections[face_detection_indices[i]])
-//												+ 100*tracking_range_m_ * (face_position_msg_in->detections[face_detection_indices[i]].label.compare(face_position_accumulator_[previous_det].label)==0 ? 0 : 1);
+
+				//costs_matrix[previous_det][i] = 100*computeFacePositionDistance(face_position_accumulator_[previous_det], face_position_msg_in->detections[face_detection_indices[i]])
+				//																	+ 100*tracking_range_m_ * (face_position_msg_in->detections[face_detection_indices[i]].label.compare(face_position_accumulator_[previous_det].label)==0 ? 0 : 1);
+
 				costs_matrix_image[previous_det][i] = 100.0 - 100*computeFacePositionImageSimilarity(face_image_accumulator_[previous_det], face_image_msg_in->head_detections[i].color_image);
 				costs_matrix[previous_det][i] = 100*computeFacePositionDistance(face_position_accumulator_[previous_det], face_position_msg_in->detections[face_detection_indices[i]])
 																				+ 100*tracking_range_m_ * (face_position_msg_in->detections[face_detection_indices[i]].label.compare(face_position_accumulator_[previous_det].label)==0 ? 0 : 1)
 																				+ costs_matrix_image[previous_det][i];
+
 				//std::cout << "cost matrix result: "<< costs_matrix[previous_det][i] << "\n";
 				if (debug_)
 					std::cout << costs_matrix[previous_det][i] << "\t";
@@ -1025,25 +803,7 @@ void DetectionTrackerNode::inputCallback(const cob_people_detection_msgs::Detect
 			assignmentProblem.assign(optimalAssignment);
 			if (debug_)
 				std::cout << "Assignment problem solved.\n";
-			std::cout << "costs_matrix: " ;
-			for (int i = 0; i < costs_matrix.size(); i++)
-			{
-				for (int j = 0; j < costs_matrix[0].size(); j++)
-				{
-					std::cout << costs_matrix[i][j] << " ";
-				}
-				std::cout << "\n";
-			}
 
-			std::cout << "costs_matrix_image :";
-			for (int i = 0; i < costs_matrix.size(); i++)
-			{
-				for (int j = 0; j < costs_matrix[0].size(); j++)
-				{
-					std::cout << costs_matrix_image[i][j] << " ";
-				}
-				std::cout << "\n";
-			}
 			// read out solutions, update face_position_accumulator
 			for (int i = 0; i < num_rows; i++)
 			{
@@ -1061,10 +821,8 @@ void DetectionTrackerNode::inputCallback(const cob_people_detection_msgs::Detect
 					previous_match_index = optimalAssignment[i].col;
 					current_match_index = optimalAssignment[i].row;
 				}
-				//std::cout << "optimalAssignment row, previous match index " << previous_match_index << "\n";
-				//std::cout << "optimalAssignment col, current match index " << current_match_index << "\n";
 
-				// rmb-ss: stop matching for poor similarity
+				// stop matching for poor similarity
 				// TODO : find appropriate values.
 				// added checks for image similarity. Values to be determined experimentally
 				// if  cost < 50, do not match to previous detections.
@@ -1078,29 +836,25 @@ void DetectionTrackerNode::inputCallback(const cob_people_detection_msgs::Detect
 						if (face_detection_indices[i] == current_match_index)
 						{
 							current_detection_has_matching[i] = true;
-							// rmb-ss update previous image with current match image.
+							// update face_image_accumulator_ with current match image.
 							face_image_accumulator_[previous_match_index]=face_image_msg_in->head_detections[current_match_index].color_image;
-							//std::cout << "votes on detection: " << face_identification_votes_[previous_match_index]["Stefan"] << "\n";
-							// end rmb-ss
 						}
 				}
 				// TODO: not running copy detection leads to creation of new entry in accumulator.
 				else
 				{
-					if ((face_position_msg_in->detections[current_match_index].pose.pose.position.x - face_position_accumulator_[previous_match_index].pose.pose.position.x)<20)
-					{
-						face_position_accumulator_.erase(face_position_accumulator_.begin()+previous_match_index);
-						face_identification_votes_.erase(face_identification_votes_.begin()+previous_match_index);
-						face_image_accumulator_.erase(face_image_accumulator_.begin()+previous_match_index);
-						std::cout << "deleted entry of last entity at this position \n";
-					}
-					std::cout << " Matching to previous detections was blocked because of low image similarities! ";
-					if (costs_matrix_image[previous_match_index][current_match_index] > 83)
-					{
-						// TODO: can we check suspected false detections again or remove them outright instead of creating new detections for them?
-						std::cout << "Cost to match image is extremely high. Match may not be a true face detection. \n";
 
-					}
+					face_position_accumulator_.erase(face_position_accumulator_.begin()+previous_match_index);
+					face_identification_votes_.erase(face_identification_votes_.begin()+previous_match_index);
+					face_image_accumulator_.erase(face_image_accumulator_.begin()+previous_match_index);
+					std::cout << "deleted entry of last entity at this position \n";
+
+					std::cout << " Matching to previous detections was blocked because of low image similarities! ";
+					/*if (costs_matrix_image[previous_match_index][current_match_index] > 83)
+					{
+						TODO: can we check suspected false detections again or remove them outright instead of creating new detections for them?
+						std::cout << "Cost to match image is extremely high. Match may not be a true face detection. \n";
+					}*/
 				}
 
 			}
@@ -1117,9 +871,6 @@ void DetectionTrackerNode::inputCallback(const cob_people_detection_msgs::Detect
 		{
 			const cob_people_detection_msgs::Detection& det_in = face_position_msg_in->detections[face_detection_indices[i]];
 
-			//face_image_msg_in->head_detections[face_detection_indices[i]].color_image.header = face_image_msg_in->header;
-
-
 			if (det_in.detector=="face")
 			{
 				// save in accumulator
@@ -1130,11 +881,9 @@ void DetectionTrackerNode::inputCallback(const cob_people_detection_msgs::Detect
 				det_out.pose.header.frame_id = "head_cam3d_link";
 				face_position_accumulator_.push_back(det_out);
 
-				// rmb-ss
-				// save head detection images
+				// remember head detection images
 				face_image_accumulator_.push_back(face_image_msg_in->head_detections[face_detection_indices[i]].color_image);
-				std::cout << "image accu size: " << face_image_accumulator_.size() << " position accu size: " << face_position_accumulator_.size() << "\n";
-				// end rmb-ss
+				//std::cout << "image accu size: " << face_image_accumulator_.size() << " position accu size: " << face_position_accumulator_.size() << "\n";
 
 				// remember label history
 				std::map<std::string, double> new_identification_data;
@@ -1142,7 +891,6 @@ void DetectionTrackerNode::inputCallback(const cob_people_detection_msgs::Detect
 				new_identification_data["UnknownHead"] = 0.0;
 				new_identification_data[det_in.label] = 1.0;
 				face_identification_votes_.push_back(new_identification_data);
-
 			}
 		}
 	}

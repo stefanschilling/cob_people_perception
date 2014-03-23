@@ -432,6 +432,9 @@ void FaceRecognizerNode::facePositionsCallback(const cob_people_detection_msgs::
 
 	// --- face recognition ---
 	std::vector< std::vector<std::string> > identification_labels;
+	std::vector< std::vector<std::string> > labels;
+	std::vector< std::vector<float> > scores;
+
 	bool identification_failed = false;
 	if (enable_face_recognition_ == true)
 	{
@@ -441,7 +444,7 @@ void FaceRecognizerNode::facePositionsCallback(const cob_people_detection_msgs::
 
     //timeval t1,t2;
     //gettimeofday(&t1,NULL);
-		unsigned long result_state = face_recognizer_.recognizeFaces(heads_color_images,heads_depth_images, face_bounding_boxes, identification_labels);
+		unsigned long result_state = face_recognizer_.recognizeFaces(heads_color_images,heads_depth_images, face_bounding_boxes, identification_labels, labels, scores);
     //gettimeofday(&t2,NULL);
     //std::cout<<(t2.tv_sec - t1.tv_sec) * 1000.0<<std::endl;
 		if (result_state == ipa_Utils::RET_FAILED)
@@ -491,7 +494,6 @@ void FaceRecognizerNode::facePositionsCallback(const cob_people_detection_msgs::
 			det.detector = "head";
 			// header
 			det.header = face_positions->header;
-			// add to message
 			detection_msg.detections.push_back(det);
 		}
 		else
@@ -500,6 +502,7 @@ void FaceRecognizerNode::facePositionsCallback(const cob_people_detection_msgs::
 			for (int face=0; face<(int)face_bounding_boxes[head].size(); face++)
 			{
 				cob_people_detection_msgs::Detection det;
+				cob_people_detection_msgs::LabelScorePair pair;
 				cv::Rect& head_bb = head_bounding_boxes[head];
 				cv::Rect& face_bb = face_bounding_boxes[head][face];
 				// set 3d position of head's center
@@ -519,8 +522,22 @@ void FaceRecognizerNode::facePositionsCallback(const cob_people_detection_msgs::
 				det.detector = "face";
 				// header
 				det.header = face_positions->header;
+<<<<<<< HEAD
 				// label score pairs:
 				//TODO det.label_distribution = ;
+=======
+				// label distribution
+				for (int i=0; i < labels[head].size(); i++)
+				{
+					pair.label = labels[head][i];
+					if (labels[head][i] == det.label)
+					{
+						det.score = scores[head][i];
+					}
+					pair.score = scores[head][i];
+					det.label_distribution.push_back(pair);
+				}
+>>>>>>> ad8e284fa1d92175410e00472106cf32066f065e
 				// add to message
 				detection_msg.detections.push_back(det);
 			}

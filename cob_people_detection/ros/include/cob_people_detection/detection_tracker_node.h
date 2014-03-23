@@ -76,9 +76,11 @@
 //#include <sensor_msgs/PointCloud2.h>
 #include <cob_people_detection_msgs/DetectionArray.h>
 
-// rmb-ss
+
 #include <cob_people_detection_msgs/ColorDepthImageArray.h>
-// end rmb-ss
+
+
+
 
 // services
 //#include <cob_people_detection/DetectPeople.h>
@@ -99,6 +101,7 @@
 // boost
 #include <boost/bind.hpp>
 #include <boost/thread/mutex.hpp>
+#include<algorithm>
 
 // external includes
 #include "cob_vision_utils/GlobalDefines.h"
@@ -183,11 +186,6 @@ public:
 	//new stuff rmb-ss
 	double computeFacePositionImageSimilarity(const sensor_msgs::Image& previous_image_msg, const sensor_msgs::Image& current_image_msg);
 	unsigned long convertColorImageMessageToMatAlt(const sensor_msgs::Image::ConstPtr& image_msg, cv_bridge::CvImageConstPtr& image_ptr, cv::Mat& image);
-
-	unsigned long CutImage(cv::Mat& curr, cv::Mat& prev, int dec_x, int dec_y);
-	unsigned long PadImage(cv::Mat& curr, cv::Mat& prev, int inc_x, int inc_y);
-	unsigned long PixelSimilarity(cv::Mat curr, cv::Mat prev, int threshold, float& diff_perc, int channels=1);
-	unsigned long PixelEuclidianDistance(cv::Mat curr, cv::Mat prev, int& distance, int channels=1);
 	unsigned long OLBPHistogram(cv::Mat src, int regions);
 	void OLBP_(cv::Mat& src, cv::Mat& dst);
 	//end new stuff rmb-ss

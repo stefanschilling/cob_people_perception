@@ -21,6 +21,7 @@ int main(int argc, const char *argv[])
   fn.init(class_path,cfg);
   cv::Mat depth,img,xyz;
   std::string i_path;
+  std::cout << "test :)";
   //else      i_path="/share/goa-tz/people_detection/eval/Kinect3DSelect/";
   i_path="/share/goa-tz/people_detection/eval/KinectIPA/";
 

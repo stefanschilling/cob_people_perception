@@ -126,7 +126,7 @@ bool FaceNormalizer::recordFace(cv::Mat&RGB,cv::Mat& XYZ)
 bool FaceNormalizer::synthFace(cv::Mat &RGB,cv::Mat& XYZ, cv::Size& norm_size,std::vector<cv::Mat>& synth_images)
 {
   //TODO
-  //maybe deveop a measure for the angles that are now being represented
+  //maybe develop a measure for the angles that are now being represented
   norm_size_=norm_size;
   input_size_=cv::Size(RGB.cols,RGB.rows);
 
@@ -416,7 +416,6 @@ void FaceNormalizer::GammaDCT(cv::Mat& input_img)
   }
 }
 
-
 bool FaceNormalizer::synth_head_poses_relative(cv::Mat& img,cv::Mat& depth,std::vector<cv::Mat>& synth_images)
 {
 
@@ -550,7 +549,7 @@ bool FaceNormalizer::synth_head_poses_relative(cv::Mat& img,cv::Mat& depth,std::
    righteye=translation*T_rot*T_norm*righteye;
    nose=translation*T_rot*T_norm*nose;
 
-   //transform norm coordiantes separately to  determine roi
+   //transform norm coordinates separately to  determine roi
    cv::Point2f lefteye_uv,righteye_uv,nose_uv;
    cv::Point3f lefteye_xyz,righteye_xyz,nose_xyz;
 
@@ -567,8 +566,8 @@ bool FaceNormalizer::synth_head_poses_relative(cv::Mat& img,cv::Mat& depth,std::
 
    float s=2;
    int dim_x=(righteye_uv.x-lefteye_uv.x)*s;
-   int off_x=((righteye_uv.x-lefteye_uv.x)*s -(righteye_uv.x-lefteye_uv.x))/2;
-   int off_y=off_x;
+   //int off_x=((righteye_uv.x-lefteye_uv.x)*s -(righteye_uv.x-lefteye_uv.x))/2;
+   //int off_y=off_x;
    int dim_y=dim_x;
 
    roi=cv::Rect(round(nose_uv.x-dim_x*0.5),round(nose_uv.y-dim_y*0.5),dim_x,dim_y);
@@ -651,7 +650,7 @@ bool FaceNormalizer::synth_head_poses(cv::Mat& img,cv::Mat& depth,std::vector<cv
   cv::Rect roi;
 
 
-  float  background_thresh=view_offset+0.3;
+  //float  background_thresh=view_offset+0.3;
   //eliminate_background(img,depth,background_thresh);
 
   cv::Mat workmat=cv::Mat(depth.rows,depth.cols,CV_32FC3);
@@ -746,7 +745,7 @@ bool FaceNormalizer::synth_head_poses(cv::Mat& img,cv::Mat& depth,std::vector<cv
    righteye=translation*T_rot*T_norm*righteye;
    nose=translation*T_rot*T_norm*nose;
 
-   //transform norm coordiantes separately to  determine roi
+   //transform norm coordinates separately to  determine roi
    cv::Point2f lefteye_uv,righteye_uv,nose_uv;
    cv::Point3f lefteye_xyz,righteye_xyz,nose_xyz;
 
@@ -763,8 +762,8 @@ bool FaceNormalizer::synth_head_poses(cv::Mat& img,cv::Mat& depth,std::vector<cv
 
    float s=2;
    int dim_x=(righteye_uv.x-lefteye_uv.x)*s;
-   int off_x=((righteye_uv.x-lefteye_uv.x)*s -(righteye_uv.x-lefteye_uv.x))/2;
-   int off_y=off_x;
+   //int off_x=((righteye_uv.x-lefteye_uv.x)*s -(righteye_uv.x-lefteye_uv.x))/2;
+   //int off_y=off_x;
    int dim_y=dim_x;
 
    roi=cv::Rect(round(nose_uv.x-dim_x*0.5),round(nose_uv.y-dim_y*0.5),dim_x,dim_y);
@@ -793,6 +792,42 @@ bool FaceNormalizer::synth_head_poses(cv::Mat& img,cv::Mat& depth,std::vector<cv
 
   return true;
 }
+
+bool FaceNormalizer::frontFaceImage(cv::Mat& img,cv::Mat& depth, float& score)
+{
+	// read out existing training data instead?
+	/*std::string path="/home/rmb-ss/.ros/cob_people_detection/files/training_data";
+	cv::Mat img_color;
+	cv::Mat img_depth;
+	std::cout << "doing stuff!\n";
+	for (int i; i<20; i++)
+	{
+	}
+	std::cout << "doing for!\n";
+	cv::FileStorage fs(path,FileStorage::READ);
+	fs["depth"]>> img_depth;
+	fs["color"]>> img_color;
+	fs.release();*/
+
+	// detect features
+	if(!features_from_color(img))return false;
+	if(debug_)dump_features(img);
+
+
+	if(!features_from_depth(depth)) return false;
+
+	Eigen::Vector3f temp,x_new,y_new,z_new,lefteye,nose,righteye,eye_middle;
+
+	nose<<f_det_xyz_.nose.x,f_det_xyz_.nose.y,f_det_xyz_.nose.z;
+	lefteye<<f_det_xyz_.lefteye.x,f_det_xyz_.lefteye.y,f_det_xyz_.lefteye.z;
+	righteye<<f_det_xyz_.righteye.x,f_det_xyz_.righteye.y,f_det_xyz_.righteye.z;
+	eye_middle=lefteye+((righteye-lefteye)*0.5);
+
+	std::cout << "Detected coordinates of features: \nNose: " << nose[0] << " " << nose[1] << " " << nose[2] << "\nLeft Eye " << lefteye[0] << " " << lefteye[1] << " " << lefteye[2] << "\nRight Eye " << righteye[0] << " " << righteye[1] << " " << righteye[2]<< "\n";
+	score = (lefteye[1]-righteye[1])*(lefteye[1]-righteye[1]) + (lefteye[2]-righteye[2])*(lefteye[2]-righteye[2]) + (eye_middle[0] - nose [0])*(eye_middle[0] - nose [0]);
+	// ^ score 0 for ideal image. eyes same height, same distance from camera and nose centered between eyes
+}
+
 bool FaceNormalizer::rotate_head(cv::Mat& img,cv::Mat& depth)
 {
 
@@ -889,7 +924,7 @@ bool FaceNormalizer::rotate_head(cv::Mat& img,cv::Mat& depth)
    righteye=translation*T_rot*T_norm*righteye;
    nose=translation*T_rot*T_norm*nose;
 
-   //transform norm coordiantes separately to  determine roi
+   //transform norm coordinates separately to  determine roi
    cv::Point2f lefteye_uv,righteye_uv,nose_uv;
    cv::Point3f lefteye_xyz,righteye_xyz,nose_xyz;
 
@@ -906,8 +941,8 @@ bool FaceNormalizer::rotate_head(cv::Mat& img,cv::Mat& depth)
 
    float s=2;
    int dim_x=(righteye_uv.x-lefteye_uv.x)*s;
-   int off_x=((righteye_uv.x-lefteye_uv.x)*s -(righteye_uv.x-lefteye_uv.x))/2;
-   int off_y=off_x;
+   //int off_x=((righteye_uv.x-lefteye_uv.x)*s -(righteye_uv.x-lefteye_uv.x))/2;
+   //int off_y=off_x;
    int dim_y=dim_x;
 
    //roi=cv::Rect(round(nose_uv.x-dim_x*0.5),round(nose_uv.y-dim_y*0.5),dim_x,dim_y);
@@ -957,7 +992,7 @@ bool FaceNormalizer::rotate_head(cv::Mat& img,cv::Mat& depth)
     return false;
   }
   imgres(roi).copyTo(img);
-  //TODO TEMPorary swithc ogg
+  //TODO TEMPorary switch ogg
   dmres(roi).copyTo(depth);
   //despeckle<unsigned char>(img,img);
   //only take central region
@@ -1030,7 +1065,7 @@ bool FaceNormalizer::normalize_geometry_depth(cv::Mat& img,cv::Mat& depth)
    righteye=T_norm*righteye;
    nose=T_norm*nose;
 
-   //transform norm coordiantes separately to  determine roi
+   //transform norm coordinates separately to  determine roi
    cv::Point2f lefteye_uv,righteye_uv,nose_uv;
    cv::Point3f lefteye_xyz,righteye_xyz,nose_xyz;
 
@@ -1046,8 +1081,8 @@ bool FaceNormalizer::normalize_geometry_depth(cv::Mat& img,cv::Mat& depth)
    //determine bounding box
    float s=3.3;
    int dim_x=(righteye_uv.x-lefteye_uv.x)*s;
-   int off_x=((righteye_uv.x-lefteye_uv.x)*s -(righteye_uv.x-lefteye_uv.x))/2;
-   int off_y=off_x;
+   //int off_x=((righteye_uv.x-lefteye_uv.x)*s -(righteye_uv.x-lefteye_uv.x))/2;
+   //int off_y=off_x;
    int dim_y=dim_x;
 
    cv::Rect roi=cv::Rect(round(nose_uv.x-dim_x*0.5),round(nose_uv.y-dim_y*0.5),dim_x,dim_y);
@@ -1216,7 +1251,7 @@ void FaceNormalizer::dump_features(cv::Mat& img)
 
   cv::Mat img2;
   img.copyTo(img2);
-  IplImage ipl_img=(IplImage)img2;
+  //IplImage ipl_img=(IplImage)img2;
    cv::circle(img2,cv::Point(f_det_img_.nose.x, f_det_img_.nose.y),5,CV_RGB(255,0,0));
    //cv::circle(img2,cv::Point(f_det_img_.mouth.x,f_det_img_.mouth.y),5,CV_RGB(0,255,0));
    cv::circle(img2,cv::Point(f_det_img_.lefteye.x,f_det_img_.lefteye.y),5,CV_RGB(255,255,0));
