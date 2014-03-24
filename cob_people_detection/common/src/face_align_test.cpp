@@ -56,12 +56,12 @@ int main(int argc, const char *argv[])
 
 
 	//cv::imshow("NORMALIZED",wmat1);
-	for(int j = 0;j<synth_images.size();j++)
-	{
-		cv::imshow("NORMALIZED",synth_images[j]);
-		std::cout<<j<<std::endl;
-		cv::waitKey();
-	}
+//	for(int j = 0;j<synth_images.size();j++)
+//	{
+//		cv::imshow("NORMALIZED",synth_images[j]);
+//		std::cout<<j<<std::endl;
+//		cv::waitKey();
+//	}
 	//cv::waitKey();
 	std::cout<<"..done\n";
 	return 0;
