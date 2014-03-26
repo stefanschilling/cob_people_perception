@@ -810,8 +810,8 @@ bool FaceNormalizer::frontFaceImage(cv::Mat& img,cv::Mat& depth, float& score)
 	fs.release();*/
 
 	// detect features
-	if(!features_from_color(img))return false;
-	if(debug_)dump_features(img);
+	//if(!features_from_color(img))return false;
+	//if(debug_)dump_features(img);
 
 
 	if(!features_from_depth(depth)) return false;
@@ -825,6 +825,7 @@ bool FaceNormalizer::frontFaceImage(cv::Mat& img,cv::Mat& depth, float& score)
 
 	std::cout << "Detected coordinates of features: \nNose: " << nose[0] << " " << nose[1] << " " << nose[2] << "\nLeft Eye " << lefteye[0] << " " << lefteye[1] << " " << lefteye[2] << "\nRight Eye " << righteye[0] << " " << righteye[1] << " " << righteye[2]<< "\n";
 	score = (lefteye[1]-righteye[1])*(lefteye[1]-righteye[1]) + (lefteye[2]-righteye[2])*(lefteye[2]-righteye[2]) + (eye_middle[0] - nose [0])*(eye_middle[0] - nose [0]);
+	std::cout << score;
 	// ^ score 0 for ideal image. eyes same height, same distance from camera and nose centered between eyes
 }
 
@@ -1281,9 +1282,13 @@ bool FaceNormalizer::read_scene(cv::Mat& depth, cv::Mat& color,std::string path)
 {
   std::cout<<"[FaceNormalizer]Reading from "<<path<<std::endl;
   cv::FileStorage fs(path,FileStorage::READ);
-  fs["depth"]>> depth;
-  fs["color"]>> color;
+  std::cout<<"read depth 1.xml";
+  fs["depthmap"]>> depth;
+
+  std::cout<<"got it";
+  //fs["color"]>> color;
   fs.release();
+  std::cout<<"released";
   return true;
 }
 

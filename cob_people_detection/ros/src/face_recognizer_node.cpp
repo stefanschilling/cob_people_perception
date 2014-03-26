@@ -522,10 +522,8 @@ void FaceRecognizerNode::facePositionsCallback(const cob_people_detection_msgs::
 				det.detector = "face";
 				// header
 				det.header = face_positions->header;
-<<<<<<< HEAD
 				// label score pairs:
 				//TODO det.label_distribution = ;
-=======
 				// label distribution
 				for (int i=0; i < labels[head].size(); i++)
 				{
@@ -537,7 +535,6 @@ void FaceRecognizerNode::facePositionsCallback(const cob_people_detection_msgs::
 					pair.score = scores[head][i];
 					det.label_distribution.push_back(pair);
 				}
->>>>>>> ad8e284fa1d92175410e00472106cf32066f065e
 				// add to message
 				detection_msg.detections.push_back(det);
 			}

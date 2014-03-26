@@ -137,11 +137,11 @@ void ipa_PeopleDetector::FaceRecognizer1D::calcDIFS(cv::Mat& probe_mat,int& minD
 
     // update minimum distance and index if required
 	// ordered neighbors is <double, int>, int for index of sample picture, double for distance to probe.
-<<<<<<< HEAD
+
 	// so ordered neighbors is filled with the distance of all samples to the probe, and from the indeces we know which samples relate to what label/person
-=======
+
 	// ordered neighbors is filled with the distance of all samples to the probe, and from the indices we know which samples relate to what label/person
->>>>>>> ad8e284fa1d92175410e00472106cf32066f065e
+
 	minDIFSindex = ordered_neighbors.begin()->second;
 	minDIFS = ordered_neighbors.begin()->first;
 

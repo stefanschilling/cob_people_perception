@@ -527,7 +527,6 @@ unsigned long ipa_PeopleDetector::FaceRecognizer::recognizeFace(cv::Mat& color_i
 		else
 		{
 
-<<<<<<< HEAD
       int res_label;
       cv::Mat label_probability;
       eff_color->classifyImage(resized_8U1,res_label,label_probability);
@@ -539,21 +538,6 @@ unsigned long ipa_PeopleDetector::FaceRecognizer::recognizeFace(cv::Mat& color_i
       {
         identification_labels.push_back(m_current_label_set[res_label]);
       }
-=======
-		int res_label;
-		cv::Mat classification_probabilities;
-		eff_color->classifyImage(resized_8U1,res_label,classification_probabilities);
-		if(res_label==-1)
-		{
-			identification_labels.push_back("Unknown Face");
-		}
-		else
-		{
-
-			identification_labels.push_back(m_current_label_set[res_label]);
-			//TODO convert classification_probabilities to string and float entries for labels+scores
->>>>>>> ad8e284fa1d92175410e00472106cf32066f065e
-		}
 	}
 }
 

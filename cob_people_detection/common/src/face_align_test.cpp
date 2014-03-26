@@ -23,42 +23,51 @@ int main(int argc, const char *argv[])
   std::string i_path;
   std::cout << "test :)";
   //else      i_path="/share/goa-tz/people_detection/eval/Kinect3DSelect/";
-  i_path="/share/goa-tz/people_detection/eval/KinectIPA/";
+  i_path="/home/stefan/.ros/training_data/depth/";
 
   i_path.append(argv[1]);
   std::string xml_path=i_path;
   xml_path.append(".xml");
-
+  std::cout << "read scene :)";
   fn.read_scene(xyz,img,xml_path);
+  std::cout << "got scene :)";
   cv::Mat wmat1,wmat2;
-  img.copyTo(wmat1);
-  img.copyTo(wmat2);
+  xyz.copyTo(wmat1);
+  //img.copyTo(wmat2);
+  float score=1.0;
+  std::cout << score;
+  std::cout << "ok. \n" << xyz.dims << " ?? ";
+  fn.frontFaceImage(wmat1,wmat1,score);
+  std::cout << score;
+
   cv::Size norm_size=cv::Size(100,100);
   //cv::cvtColor(wmat1,wmat1,CV_RGB2BGR);
 
-  cv::imshow("ORIGINAL",wmat1);
+  //cv::imshow("ORIGINAL",wmat1);
 
   cv::Mat depth_res;
   std::vector<cv::Mat> synth_images;
   // call member functions of FaceNormalizer
-  fn.synthFace(wmat1,xyz,norm_size,synth_images);
+  //fn.synthFace(wmat1,xyz,norm_size,synth_images);
+
   //fn.isolateFace(wmat1,xyz);
   //fn.normalizeFace(wmat1,xyz,norm_size,depth);
   //fn.recordFace(wmat1,xyz);
  
   
-  synth_images.push_back(wmat1);
+  //synth_images.push_back(wmat1);
+
  // depth.convertTo(depth,CV_8UC1,255);
  // cv::equalizeHist(depth,depth);
 
 
   //cv::imshow("NORMALIZED",wmat1);
-  for(int j = 0;j<synth_images.size();j++)
+  /*for(int j = 0;j<synth_images.size();j++)
   {
   cv::imshow("NORMALIZED",synth_images[j]);
   cv::waitKey(0);
   std::cout<<j<<std::endl;
-  }
+  }*/
   std::cout<<"..done\n";
   return 0;
 }
