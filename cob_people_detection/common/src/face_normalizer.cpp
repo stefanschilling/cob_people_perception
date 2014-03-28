@@ -180,13 +180,16 @@ bool FaceNormalizer::synthFace(cv::Mat &RGB,cv::Mat& XYZ, cv::Size& norm_size,st
 
 		if(debug_)dump_img(synth_images[n],"size");
 	}
-	for (int i=0; i < synth_images.size(); i++)
-	{
-		std::string window_id = "r" + char(i);
-		cv::imshow(window_id, synth_images[i]);
-	}
 
-	cv::waitKey();
+//	cv::imshow("0", synth_images[0]);
+//	cv::imshow("1", synth_images[1]);
+//	cv::imshow("2", synth_images[2]);
+//	cv::imshow("3", synth_images[3]);
+//	cv::imshow("4", synth_images[4]);
+//	cv::imshow("5", synth_images[5]);
+//	cv::imshow("6", synth_images[6]);
+
+//	cv::waitKey();
 
 	epoch_ctr_++;
 	return valid;
@@ -649,7 +652,7 @@ bool FaceNormalizer::synth_head_poses(cv::Mat& img,cv::Mat& depth,std::vector<cv
 
 	//eye-to-eye vector
 	eye_to_eye<<f_det_xyz_.righteye.x-f_det_xyz_.lefteye.x,f_det_xyz_.righteye.y-f_det_xyz_.lefteye.y,f_det_xyz_.righteye.z-f_det_xyz_.lefteye.z;
-	std::cout << "eye_to_eye : " << eye_to_eye << "\n";
+	//std::cout << "eye_to_eye : " << eye_to_eye << "\n";
 	//move vector to start from nose
 	eye_to_eye += nose;
 
@@ -668,8 +671,8 @@ bool FaceNormalizer::synth_head_poses(cv::Mat& img,cv::Mat& depth,std::vector<cv
 	y_new.normalize();
 
 	//show base vectors...
-	std::cout << "x_plane: " << x_plane << "\n eye_to_eye + nose: " << eye_to_eye << "\n distance of vector end to plane: " << d << "\n";
-	std::cout << "new base vectors: \n z " << z_new << "\n y " << y_new << "\n x " << x_new << "\n";
+	//std::cout << "x_plane: " << x_plane << "\n eye_to_eye + nose: " << eye_to_eye << "\n distance of vector end to plane: " << d << "\n";
+	//std::cout << "new base vectors: \n z " << z_new << "\n y " << y_new << "\n x " << x_new << "\n";
 
 
 
@@ -710,19 +713,22 @@ bool FaceNormalizer::synth_head_poses(cv::Mat& img,cv::Mat& depth,std::vector<cv
 	//origin=nose+(0.1*z_new);
 
 	Eigen::Affine3f T_norm;
+	//pcl::getTransformationFromTwoUnitVectorsAndOrigin(y_new,z_new,origin,T_norm);
+	T_norm= pcl::getTransformation(float(-nose[0]), float(-nose[1]), float(-nose[2]), 0.0, 0.0, 0.0);
 
-	pcl::getTransformationFromTwoUnitVectorsAndOrigin(y_new,z_new,origin,T_norm);
+
 
 
 	// viewing offset of normalized perspective
-	double view_offset=0.8;
+	double view_offset=nose[2];
+	view_offset = 0.8;
 	Eigen::Translation<float,3> translation=Eigen::Translation<float,3>(0, 0, view_offset);
 
 	// modify T_norm by angle for nose incline compensation
 	//Eigen::AngleAxis<float> roll(-0.78, x_new);
-	Eigen::AngleAxis<float> roll(0.00, x_new);
+	//Eigen::AngleAxis<float> roll(0.00, x_new);
 	//Eigen::AngleAxis<float> roll(-0.78, Eigen::Vector3f(1,0,0));
-	T_norm=roll*T_norm;
+	//T_norm=roll*T_norm;
 
 
 	Eigen::Affine3f T_rot;
@@ -750,7 +756,7 @@ bool FaceNormalizer::synth_head_poses(cv::Mat& img,cv::Mat& depth,std::vector<cv
 //  }
 
 	//number of poses
-	int N=7;
+	int N=3;
 	std::cout<<"Synthetic POSES"<<std::endl;
 
 	for(int i=0;i<N;i++)
@@ -807,7 +813,10 @@ bool FaceNormalizer::synth_head_poses(cv::Mat& img,cv::Mat& depth,std::vector<cv
 		depth.copyTo(workmat);
 		cv::Vec3f* ptr=workmat.ptr<cv::Vec3f>(0,0);
 		Eigen::Vector3f pt;
+
 		std::cout << workmat.at<cv::Vec3f>(50,50) << std::endl;
+		//std::cout << T_norm;
+		//std::cout << T_rot;
 		for(int i=0;i<img.total();i++)
 		{
 			pt<<(*ptr)[0],(*ptr)[1],(*ptr)[2];
@@ -858,7 +867,8 @@ bool FaceNormalizer::synth_head_poses(cv::Mat& img,cv::Mat& depth,std::vector<cv
 		if(img.channels()==3)cv::cvtColor(img,img,CV_RGB2GRAY);
 
 		projectPointCloud(img,workmat,imgres,dmres);
-
+		cv::imshow("workmat", imgres);
+		cv::waitKey();
 
 
 		if(debug_)dump_img(imgres,"uncropped");
