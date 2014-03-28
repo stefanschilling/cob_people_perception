@@ -220,13 +220,6 @@ unsigned long ipa_PeopleDetector::FaceRecognizer::addFace(cv::Mat& color_image, 
 	face_normalizer_.recordFace(roi_color,roi_depth_xyz);
 	if(!face_normalizer_.normalizeFace(roi_color,roi_depth_xyz,norm_size))
 		face_normalizer_.frontFaceImage(roi_color,roi_depth_xyz,score);
-		if (score < 100)
-		{
-			std::cout << "this might be a good image to synth from? score: " << score << "\n";
-			namedWindow( "Display window", WINDOW_AUTOSIZE );// Create a window for display.
-			cv::imshow( "Display window", roi_color);
-			cv::waitKey;
-		}
 		return ipa_Utils::RET_FAILED;
 
 	// Save image

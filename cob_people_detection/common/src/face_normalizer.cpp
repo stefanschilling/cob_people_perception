@@ -116,15 +116,12 @@ bool FaceNormalizer::isolateFace(cv::Mat& RGB,cv::Mat& XYZ)
 
 bool FaceNormalizer::recordFace(cv::Mat&RGB,cv::Mat& XYZ)
 {
-  
-  
   std::string filepath=storage_directory_;
   filepath.append("scene");
   save_scene(RGB,XYZ,filepath);
-
 }
 
-bool FaceNormalizer::synthFace(cv::Mat &RGB,cv::Mat& XYZ, cv::Size& norm_size,std::vector<cv::Mat>& synth_images)
+bool FaceNormalizer::synthFace(cv::Mat &RGB,cv::Mat& XYZ, cv::Size& norm_size,std::vector<cv::Mat>& synth_images,std::vector<cv::Mat>& synth_depths)
 {
   //TODO
   //maybe develop a measure for the angles that are now being represented
@@ -141,7 +138,7 @@ bool FaceNormalizer::synthFace(cv::Mat &RGB,cv::Mat& XYZ, cv::Size& norm_size,st
     cv::Mat GRAY;
     cv::cvtColor(RGB,GRAY,CV_RGB2GRAY);
     //rotate_head(RGB,XYZ);
-    if(!synth_head_poses(GRAY,XYZ,synth_images))
+    if(!synth_head_poses(GRAY,XYZ,synth_images,synth_depths))
     {
 		valid=false;
 		std::cout<< "synth failed \n";
@@ -606,7 +603,7 @@ bool FaceNormalizer::synth_head_poses_relative(cv::Mat& img,cv::Mat& depth,std::
 
 	return true;
 }
-bool FaceNormalizer::synth_head_poses(cv::Mat& img,cv::Mat& depth,std::vector<cv::Mat>& synth_images)
+bool FaceNormalizer::synth_head_poses(cv::Mat& img,cv::Mat& depth,std::vector<cv::Mat>& synth_images, std::vector<cv::Mat>& synth_depths)
 {
 
 	// detect features
@@ -721,7 +718,7 @@ bool FaceNormalizer::synth_head_poses(cv::Mat& img,cv::Mat& depth,std::vector<cv
 
 	// viewing offset of normalized perspective
 	double view_offset=nose[2];
-	view_offset = 0.8;
+	view_offset = nose[2]/3;
 	Eigen::Translation<float,3> translation=Eigen::Translation<float,3>(0, 0, view_offset);
 
 	// modify T_norm by angle for nose incline compensation
@@ -756,7 +753,7 @@ bool FaceNormalizer::synth_head_poses(cv::Mat& img,cv::Mat& depth,std::vector<cv
 //  }
 
 	//number of poses
-	int N=3;
+	int N=6;
 	std::cout<<"Synthetic POSES"<<std::endl;
 
 	for(int i=0;i<N;i++)
@@ -770,32 +767,32 @@ bool FaceNormalizer::synth_head_poses(cv::Mat& img,cv::Mat& depth,std::vector<cv
 			}
 			case 1:
 			{
-				alpha=Eigen::AngleAxis<float>((float) 0.1*M_PI, x_new);
+				alpha=Eigen::AngleAxis<float>((float) 0.05*M_PI, x_new);
 				break;
 			}
 			case 2:
 			{
-				alpha=Eigen::AngleAxis<float>((float)-0.1*M_PI, x_new);
+				alpha=Eigen::AngleAxis<float>((float)-0.05*M_PI, x_new);
 				break;
 			}
 			case 3:
 			{
-				alpha=Eigen::AngleAxis<float>((float) 0.1*M_PI, y_new);
+				alpha=Eigen::AngleAxis<float>((float) 0.05*M_PI, y_new);
 				break;
 			}
 			case 4:
 			{
-				alpha=Eigen::AngleAxis<float>((float)-0.1*M_PI, y_new);
+				alpha=Eigen::AngleAxis<float>((float)-0.05*M_PI, y_new);
 				break;
 			}
 			case 5:
 			{
-				alpha=Eigen::AngleAxis<float>((float) 0.1*M_PI, z_new);
+				alpha=Eigen::AngleAxis<float>((float) 0.05*M_PI, z_new);
 				break;
 			}
 			case 6:
 			{
-				alpha=Eigen::AngleAxis<float>((float)-0.1*M_PI, z_new);
+				alpha=Eigen::AngleAxis<float>((float)-0.05*M_PI, z_new);
 				break;
 			}
 		}
@@ -855,21 +852,19 @@ bool FaceNormalizer::synth_head_poses(cv::Mat& img,cv::Mat& depth,std::vector<cv
 
 		//determine bounding box
 
-		float s=2;
+		float s=2.5;
 		int dim_x=(righteye_uv.x-lefteye_uv.x)*s;
 		//int off_x=((righteye_uv.x-lefteye_uv.x)*s -(righteye_uv.x-lefteye_uv.x))/2;
 		//int off_y=off_x;
 		int dim_y=dim_x;
 
-		roi=cv::Rect(round(nose_uv.x-dim_x*0.5),round(nose_uv.y-dim_y*0.5),dim_x,dim_y);
+		roi=cv::Rect(round(nose_uv.x-dim_x*0.5),round(nose_uv.y-dim_y*0.5)-10,dim_x,dim_y);
 		//roi=cv::Rect(round(lefteye_uv.x-dim_x*0.25),round(lefteye_uv.y-dim_y*0.25),dim_x,dim_y);
 
 		if(img.channels()==3)cv::cvtColor(img,img,CV_RGB2GRAY);
 
 		projectPointCloud(img,workmat,imgres,dmres);
 		cv::imshow("workmat", imgres);
-		cv::waitKey();
-
 
 		if(debug_)dump_img(imgres,"uncropped");
 
@@ -880,8 +875,10 @@ bool FaceNormalizer::synth_head_poses(cv::Mat& img,cv::Mat& depth,std::vector<cv
 		}
 		imgres=imgres(roi);
 		imgres=imgres(cv::Rect(2,2,imgres.cols-4,imgres.rows-4));
-
+		cv::imshow("res", imgres);
+		cv::waitKey();
 		synth_images.push_back(imgres);
+		synth_depths.push_back(dmres);
 	}
 
 return true;
@@ -1583,7 +1580,7 @@ bool FaceNormalizer::projectPointCloud(cv::Mat& img, cv::Mat& depth, cv::Mat& im
 			pc_ptr++;
 		}
 
-		cv::imshow("Imgres", img_res);
+		//cv::imshow("Imgres", img_res);
 		//occ_grid=occ_grid;
 		img_cum=img_cum / (occ_grid.mul(occ_grid2)-1);
 		img_cum.convertTo(img_cum,CV_8UC1);

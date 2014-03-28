@@ -42,12 +42,13 @@ int main(int argc, const char *argv[])
 
 	cv::Mat depth_res;
 	std::vector<cv::Mat> synth_images;
+	std::vector<cv::Mat> synth_depths;
 
 	// call member functions of FaceNormalizer
-	fn.synthFace(wmat1,xyz,norm_size,synth_images);
+	fn.synthFace(wmat1,xyz,norm_size,synth_images,synth_depths);
 	//fn.isolateFace(wmat1,xyz);
 	//fn.normalizeFace(wmat1,xyz,norm_size,depth);
-	//fn.recordFace(wmat1,xyz);
+	//fn.recordFace(synth_images[4],synth_depths[4]);
 
 
 	//synth_images.push_back(wmat1);
@@ -55,7 +56,6 @@ int main(int argc, const char *argv[])
 	// cv::equalizeHist(depth,depth);
 
 
-	//cv::imshow("NORMALIZED",wmat1);
 //	for(int j = 0;j<synth_images.size();j++)
 //	{
 //		cv::imshow("NORMALIZED",synth_images[j]);
