@@ -150,8 +150,9 @@ bool FaceNormalizer::synthFace(cv::Mat &RGB,cv::Mat& XYZ, cv::Size& norm_size,st
     }
 
 	}
-	cv::imshow("synth image 1", synth_images[0]);
-	cv::waitKey();
+//	cv::imshow("1", synth_images[0]);
+//	cv::imshow("2", synth_images[1]);
+//	cv::waitKey();
 	// process remaining normalization steps with all synthetic images
 	for(int n=0;n<synth_images.size();n++)
 	{
@@ -179,7 +180,12 @@ bool FaceNormalizer::synthFace(cv::Mat &RGB,cv::Mat& XYZ, cv::Size& norm_size,st
 
 		if(debug_)dump_img(synth_images[n],"size");
 	}
-	cv::imshow("resize", synth_images[0]);
+	for (int i=0; i < synth_images.size(); i++)
+	{
+		std::string window_id = "r" + char(i);
+		cv::imshow(window_id, synth_images[i]);
+	}
+
 	cv::waitKey();
 
 	epoch_ctr_++;
@@ -615,44 +621,89 @@ bool FaceNormalizer::synth_head_poses(cv::Mat& img,cv::Mat& depth,std::vector<cv
 	eye_middle=lefteye+((righteye-lefteye)*0.5);
 
 
-//x_new<<f_det_xyz_.righteye.x-f_det_xyz_.lefteye.x,f_det_xyz_.righteye.y-f_det_xyz_.lefteye.y,f_det_xyz_.righteye.z-f_det_xyz_.lefteye.z;
-//temp<<f_det_xyz_.nose.x-eye_middle[0],f_det_xyz_.nose.y-eye_middle[1],(f_det_xyz_.nose.z-eye_middle[2]);
-//z_new=x_new.cross(temp);
-//x_new.normalize();
-//z_new.normalize();
-//y_new=x_new.cross(z_new);
-	float A=0.5;
-	double c = cos(A);
-	double s = sin(A);
-	double C = 1.0 - c;
+	//x_new<<f_det_xyz_.righteye.x-f_det_xyz_.lefteye.x,f_det_xyz_.righteye.y-f_det_xyz_.lefteye.y,f_det_xyz_.righteye.z-f_det_xyz_.lefteye.z;
+	//temp<<f_det_xyz_.nose.x-eye_middle[0],f_det_xyz_.nose.y-eye_middle[1],(f_det_xyz_.nose.z-eye_middle[2]);
+	//z_new=x_new.cross(temp);
+	//x_new.normalize();
+	//z_new.normalize();
+	//y_new=x_new.cross(z_new);
 
-	double Q[3][3];
-	x_new<<1,0,0;
-	z_new<<0,0,1;
+//	x_new<<f_det_xyz_.righteye.x-f_det_xyz_.lefteye.x,f_det_xyz_.righteye.y-f_det_xyz_.lefteye.y,f_det_xyz_.righteye.z-f_det_xyz_.lefteye.z;
+//	x_new.normalize();
+//	y_new<<f_det_xyz_.nose.x-eye_middle[0],f_det_xyz_.nose.y-eye_middle[1],0.0;
+//	y_new.normalize();
+//	z_new=x_new.cross(y_new);
+//	z_new.normalize();
 
-	Q[0][0] = z_new[0] * z_new[0] * C + c;
-	Q[0][1] = z_new[1] * z_new[0] * C + z_new[2] * s;
-	Q[0][2] = z_new[2] * z_new[0] * C - z_new[1] * s;
 
-	Q[1][0] = z_new[1] * z_new[0] * C - z_new[2] * s;
-	Q[1][1] = z_new[1] * z_new[1] * C + c;
-	Q[1][2] = z_new[2] * z_new[1] * C + z_new[0] * s;
-
-	Q[2][0] = z_new[0] * z_new[2] * C + z_new[1] * s;
-	Q[2][1] = z_new[2] * z_new[1] * C - z_new[0] * s;
-	Q[2][2] = z_new[2] * z_new[2] * C + c;
-
-	x_new[0] = x_new[0] * Q[0][0] + x_new[0] * Q[0][1] + x_new[0] * Q[0][2];
-	x_new[1] = x_new[1] * Q[1][0] + x_new[1] * Q[1][1] + x_new[1] * Q[1][2];
-	x_new[2] = x_new[2] * Q[2][0] + x_new[2] * Q[2][1] + x_new[2] * Q[2][2];
-
-	x_new.normalize();
+	//new z vector = normalized vector to nose
+	z_new<<nose[0],nose[1],nose[2];
 	z_new.normalize();
+	//vectors of plane
+	Eigen::Vector3f x_plane, y_plane,eye_to_eye,temporary;;
+	x_plane<<nose[2],nose[0],-nose[1];
+	y_plane=z_new.cross(x_plane);
+	//distance of plane to origin
+	double d = nose[0]*nose[0]+nose[1]*nose[1]+nose[2]*nose[2];
+	d = sqrt(d);
 
-	y_new<<x_new.cross(z_new);
+	//eye-to-eye vector
+	eye_to_eye<<f_det_xyz_.righteye.x-f_det_xyz_.lefteye.x,f_det_xyz_.righteye.y-f_det_xyz_.lefteye.y,f_det_xyz_.righteye.z-f_det_xyz_.lefteye.z;
+	std::cout << "eye_to_eye : " << eye_to_eye << "\n";
+	//move vector to start from nose
+	eye_to_eye += nose;
+
+	//distance of vector end to plane
+	//d(Point,Plane) = ax + by + cy + d
+
+	d = eye_to_eye[0]*z_new[0]+eye_to_eye[1]*z_new[1]+eye_to_eye[2]*z_new[2]- d;
+	//Point on Plane from distance and z_new
+	temporary = eye_to_eye + d * z_new;
+	//new x vector = nose to point on plane
+	x_new = nose - temporary;
+	x_new.normalize();
+
+	//perpendicular 3rd vector for y
+	y_new = x_new.cross(z_new);
+	y_new.normalize();
+
+	//show base vectors...
+	std::cout << "x_plane: " << x_plane << "\n eye_to_eye + nose: " << eye_to_eye << "\n distance of vector end to plane: " << d << "\n";
+	std::cout << "new base vectors: \n z " << z_new << "\n y " << y_new << "\n x " << x_new << "\n";
+
+
+
+
+	//quaternion rotation
+//	double Q[3][3];
+//	float A=0;
+//	double c = cos(A);
+//	double s = sin(A);
+//	double C = 1.0 - c;
+//	Q[0][0] = z_new[0] * z_new[0] * C + c;
+//	Q[0][1] = z_new[1] * z_new[0] * C + z_new[2] * s;
+//	Q[0][2] = z_new[2] * z_new[0] * C - z_new[1] * s;
+//
+//	Q[1][0] = z_new[1] * z_new[0] * C - z_new[2] * s;
+//	Q[1][1] = z_new[1] * z_new[1] * C + c;
+//	Q[1][2] = z_new[2] * z_new[1] * C + z_new[0] * s;
+//
+//	Q[2][0] = z_new[0] * z_new[2] * C + z_new[1] * s;
+//	Q[2][1] = z_new[2] * z_new[1] * C - z_new[0] * s;
+//	Q[2][2] = z_new[2] * z_new[2] * C + c;
+//
+//	x_new[0] = x_new[0] * Q[0][0] + x_new[0] * Q[0][1] + x_new[0] * Q[0][2];
+//	x_new[1] = x_new[1] * Q[1][0] + x_new[1] * Q[1][1] + x_new[1] * Q[1][2];
+//	x_new[2] = x_new[2] * Q[2][0] + x_new[2] * Q[2][1] + x_new[2] * Q[2][2];
+//
+//	x_new.normalize();
+//	z_new.normalize();
+//
+//	y_new<<x_new.cross(z_new);
+//	y_new.normalize();
+
 
 	if(y_new[1]<0) y_new*=-1;
-
 
 	Eigen::Vector3f origin;
 	origin=nose;
@@ -699,7 +750,7 @@ bool FaceNormalizer::synth_head_poses(cv::Mat& img,cv::Mat& depth,std::vector<cv
 //  }
 
 	//number of poses
-	int N=2;
+	int N=7;
 	std::cout<<"Synthetic POSES"<<std::endl;
 
 	for(int i=0;i<N;i++)
@@ -713,32 +764,32 @@ bool FaceNormalizer::synth_head_poses(cv::Mat& img,cv::Mat& depth,std::vector<cv
 			}
 			case 1:
 			{
-				alpha=Eigen::AngleAxis<float>((float) 0.2*M_PI, Eigen::Vector3f(1,0,0));
+				alpha=Eigen::AngleAxis<float>((float) 0.1*M_PI, x_new);
 				break;
 			}
 			case 2:
 			{
-				alpha=Eigen::AngleAxis<float>((float)-0.05*M_PI, Eigen::Vector3f(1,0,0));
+				alpha=Eigen::AngleAxis<float>((float)-0.1*M_PI, x_new);
 				break;
 			}
 			case 3:
 			{
-				alpha=Eigen::AngleAxis<float>((float) 0.05*M_PI, Eigen::Vector3f(0,1,0));
+				alpha=Eigen::AngleAxis<float>((float) 0.1*M_PI, y_new);
 				break;
 			}
 			case 4:
 			{
-				alpha=Eigen::AngleAxis<float>((float)-0.05*M_PI, Eigen::Vector3f(0,1,0));
+				alpha=Eigen::AngleAxis<float>((float)-0.1*M_PI, y_new);
 				break;
 			}
 			case 5:
 			{
-				alpha=Eigen::AngleAxis<float>((float) 0.05*M_PI, Eigen::Vector3f(0,0,1));
+				alpha=Eigen::AngleAxis<float>((float) 0.1*M_PI, z_new);
 				break;
 			}
 			case 6:
 			{
-				alpha=Eigen::AngleAxis<float>((float)-0.05*M_PI, Eigen::Vector3f(0,0,1));
+				alpha=Eigen::AngleAxis<float>((float)-0.1*M_PI, z_new);
 				break;
 			}
 		}
