@@ -219,7 +219,6 @@ unsigned long ipa_PeopleDetector::FaceRecognizer::addFace(cv::Mat& color_image, 
 	//if(!face_normalizer_.normalizeFace(roi_color,roi_depth_xyz,norm_size)) ;
 	face_normalizer_.recordFace(roi_color,roi_depth_xyz);
 	if(!face_normalizer_.normalizeFace(roi_color,roi_depth_xyz,norm_size))
-		face_normalizer_.frontFaceImage(roi_color,roi_depth_xyz,score);
 		return ipa_Utils::RET_FAILED;
 
 	// Save image
