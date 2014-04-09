@@ -948,7 +948,8 @@ bool FaceNormalizer::projectPointCloud(cv::Mat& img, cv::Mat& depth, cv::Mat& im
 		//cv::waitKey();
 
 		// Assign Color, no spread, singular assignment (lowest z-value gets the point)
-		cv::Mat img_res_zwin=cv::Mat::zeros(480,640,CV_8UC1);;
+		cv::Mat img_res_zwin=cv::Mat::zeros(480,640,CV_8UC1);
+		cv::Mat depth_res_zwin=cv::Mat::zeros(480,640,CV_32FC3);
 		cv::Mat occ_grid_zwin=cv::Mat::ones(sensor_size,CV_32FC1);
 		cv::Mat occ_grid2_zwin=cv::Mat::ones(sensor_size,CV_32FC1);
 		//reset pointers
@@ -966,12 +967,13 @@ bool FaceNormalizer::projectPointCloud(cv::Mat& img, cv::Mat& depth, cv::Mat& im
 			ty=(int)round(txty[1]);
 			if (ty>1 && tx>1 && ty<sensor_size.height-1 && tx<sensor_size.width-1 && !isnan(ty) && !isnan(tx) )
 			{
+				// fill map with point coordinates and color values, sorted by x,y values they are projected to
 				cv::Vec3f txyz = *pc_ptr;
 				proj_map[std::pair<int, int>(tx,ty)].push_back(std::make_pair(txyz, *pc_rgb_ptr));
 				//proj_map.insert(std::make_pair(std::make_pair(tx, ty),txyz));
 				//std::cout << "pushed vec3f rgb pair back \n";
 				//img_res_nos.at<unsigned char>(ty,tx)+=(*pc_rgb_ptr);
-				occ_grid_zwin.at<float>(ty,tx)+=  1;
+				//occ_grid_zwin.at<float>(ty,tx)+=  1;
 				//std::cout << "occupancy at point: " << occ_grid_zwin.at<float>(ty,tx) << "map at point (key) " << proj_map[std::pair<int, int>(tx,ty)].size() << "\n";
 				//depth_res.at<cv::Vec3f>(ty,tx)=((*pc_ptr));
 			}
@@ -979,32 +981,63 @@ bool FaceNormalizer::projectPointCloud(cv::Mat& img, cv::Mat& depth, cv::Mat& im
 			pc_proj_ptr++;
 			pc_ptr++;
 		}
+
 		//assign values based on map
 		for(std::map <std::pair<int,int>,std::vector<std::pair<cv::Vec3f, unsigned char > > >::iterator it=proj_map.begin(); it!=proj_map.end(); ++it)
 		{
-			//std::cout << (*it).first << ": " << (*it).second << std::endl;
-			if( it->second.size() == 1)
+			if( it->second.size() >0)
 			{
-				img_res_zwin.at<unsigned char>(it->first.second,it->first.first) = it->second[0].second;
-			}
-			if( it->second.size() >1)
-			{
-				int a=10;
+				// add closest depth point for each projected point to result depth matrix
+				// add color of closest depth point to result color matrix
+				int a=1;
 				for (int i = 0; i < it->second.size(); i++)
 				{
+					// pick closest point, restricted to points belonging to facial area (remove background, threshhold picked at random)
 					if (it->second[i].first[2] < a)
 					{
 						a = it->second[i].first[2];
 						img_res_zwin.at<unsigned char>(it->first.second,it->first.first) = it->second[i].second;
-						std::cout << "assigned new value to contested point at " << it->first.second << " , " << it->first.first << " z value winner: " << it->second[i].first[2] << std::endl;
+						depth_res_zwin.at<Vec3f>(it->first.second,it->first.first) = it->second[i].first;
+						// std::cout << "assigned new value to contested point at " << it->first.second << " , " << it->first.first << " z value winner: " << it->second[i].first[2] << std::endl;
 					}
 				}
 			}
 		}
 		cv::imshow("zwin",img_res_zwin);
+
+		// Convex hull of resulting image
+		int thresh = 100;
+		int max_thresh = 255;
+		int outside_contour_index=0;
+		RNG rng(12345);
+		cv::Mat src_copy = img_res_zwin.clone();
+		cv::Mat threshold_output;
+		std::vector<vector<Point> > contours;
+		std::vector<Vec4i> hierarchy;
+
+		// Detect edges using Threshold
+		cv::threshold( src_copy, threshold_output, thresh, 255, THRESH_BINARY );
+
+		// Find contours, find outside contour (assuming it has most points)
+		cv::findContours( threshold_output, contours, hierarchy, CV_RETR_TREE, CV_CHAIN_APPROX_NONE, Point(0, 0) );
+		for( int i = 0; i< contours.size(); i++ )
+		{
+			if (contours[i].size() > contours[outside_contour_index].size())
+				outside_contour_index = i;
+		}
+
+		// Find the convex hull object for each contour
+		std::vector<vector<Point> >hull( contours.size() );
+		std::vector<vector<Point> >outside_hull;
+		for( int i = 0; i < contours.size(); i++ )
+		{
+			cv::convexHull( cv::Mat(contours[i]), hull[i], false );
+		}
+		// Draw contours + hull results
+		cv::Mat outside_drawing = cv::Mat::zeros( threshold_output.size(), CV_8UC1 );
+		cv::drawContours( outside_drawing, hull, outside_contour_index, 255, CV_FILLED, 8, vector<Vec4i>(), 0, Point() );
+		cv::imshow( "Outside Hull", outside_drawing);
 		cv::waitKey();
-		//cv::imshow("result", img_res);
-		//cv::waitKey();
 	}
 
 	/*if(channels==3)
