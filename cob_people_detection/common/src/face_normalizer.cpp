@@ -943,7 +943,7 @@ bool FaceNormalizer::projectPointCloud(cv::Mat& img, cv::Mat& depth, cv::Mat& im
 			pc_proj_ptr++;
 			pc_ptr++;
 		}
-		cv::imshow("neu", img_res_nos);
+		//cv::imshow("neu", img_res_nos);
 		//cv::imshow("result", img_res);
 		//cv::waitKey();
 
@@ -989,7 +989,7 @@ bool FaceNormalizer::projectPointCloud(cv::Mat& img, cv::Mat& depth, cv::Mat& im
 			{
 				// add closest depth point for each projected point to result depth matrix
 				// add color of closest depth point to result color matrix
-				int a=1;
+				int a=1.2;
 				for (int i = 0; i < it->second.size(); i++)
 				{
 					// pick closest point, restricted to points belonging to facial area (remove background, threshhold picked at random)
@@ -1005,18 +1005,32 @@ bool FaceNormalizer::projectPointCloud(cv::Mat& img, cv::Mat& depth, cv::Mat& im
 		}
 		cv::imshow("zwin",img_res_zwin);
 
-		// Convex hull of resulting image
-		int thresh = 100;
+		// blur, erode and dilate to cut out any "straggler" points and other parts drifting away from the face for lack of depth point cohesion
+		cv::Mat src_copy = img_res_zwin.clone();
+		cv::Mat src_erode, src_dilate;
+		int erosion_size = 2;
+		cv::Mat element = cv::getStructuringElement( MORPH_RECT, Size( 2*erosion_size + 1, 2*erosion_size+1 ));
+		cv::GaussianBlur(src_copy,src_copy, cv::Size(3,3),0,0);
+		cv::erode(src_copy,src_erode,element);
+		cv::erode(src_erode,src_erode,element);
+		cv::dilate(src_erode, src_dilate, element);
+		//cv::dilate(src_dilate, src_dilate, element);
+		//cv::imshow("eroded zwin", src_erode);
+		//cv::imshow("dilated zwin", src_dilate);
+
+
+		// Outer Contour of dilated image
+		int thresh = 5;
 		int max_thresh = 255;
 		int outside_contour_index=0;
 		RNG rng(12345);
-		cv::Mat src_copy = img_res_zwin.clone();
+		//src_copy = img_res_zwin.clone();
 		cv::Mat threshold_output;
 		std::vector<vector<Point> > contours;
 		std::vector<Vec4i> hierarchy;
 
 		// Detect edges using Threshold
-		cv::threshold( src_copy, threshold_output, thresh, 255, THRESH_BINARY );
+		cv::threshold( src_dilate, threshold_output, thresh, 255, THRESH_BINARY );
 
 		// Find contours, find outside contour (assuming it has most points)
 		cv::findContours( threshold_output, contours, hierarchy, CV_RETR_TREE, CV_CHAIN_APPROX_NONE, Point(0, 0) );
@@ -1028,15 +1042,65 @@ bool FaceNormalizer::projectPointCloud(cv::Mat& img, cv::Mat& depth, cv::Mat& im
 
 		// Find the convex hull object for each contour
 		std::vector<vector<Point> >hull( contours.size() );
-		std::vector<vector<Point> >outside_hull;
 		for( int i = 0; i < contours.size(); i++ )
 		{
 			cv::convexHull( cv::Mat(contours[i]), hull[i], false );
 		}
 		// Draw contours + hull results
 		cv::Mat outside_drawing = cv::Mat::zeros( threshold_output.size(), CV_8UC1 );
-		cv::drawContours( outside_drawing, hull, outside_contour_index, 255, CV_FILLED, 8, vector<Vec4i>(), 0, Point() );
-		cv::imshow( "Outside Hull", outside_drawing);
+		cv::drawContours( outside_drawing, contours, outside_contour_index, 255, CV_FILLED, 8, vector<Vec4i>(), 0, Point() );
+		cv::imshow( "Outside Contour", outside_drawing);
+
+		// apply smoothing filter on points inside of contour, remove straggler points from color and depth matrix
+		cv::Mat img_res_fltr = img_res_zwin.clone();
+		cv::Mat depth_res_fltr = depth_res_zwin.clone();
+		//cv::threshold(img_res_fltr, img_res_fltr, 125, 0, 3);
+		bool sample = true;
+		std::pair<int,int> kernel_array[8] = {std::make_pair(1,0), std::make_pair(1,1), std::make_pair(0,1), std::make_pair(-1,1), std::make_pair(-1,0), std::make_pair(-1,-1), std::make_pair(0,-1), std::make_pair(1,-1) };
+		//std::vector<std::pair<int, int> > filter_kernel { std::make_pair(1,0), std::make_pair(1,1), std::make_pair(0,1), std::make_pair(-1,1), std::make_pair(-1,0), std::make_pair(-1,-1), std::make_pair(0,-1), std::make_pair(1,-1) };
+		for (int i = 1; i<img_res_fltr.cols-1; i++)
+		{
+			for (int j = 1; j<img_res_fltr.rows-1; j++)
+			{
+				if (outside_drawing.at<uchar>(i,j) > 0 && img_res_fltr.at<uchar>(i,j) == 0)
+				{
+					//std::cout << "should be filtering ... ";
+					int res_color_divisor=0;
+					int res_color=0;
+					if (sample)
+						std::cout << "Lets see that shifting box.\n";
+					for (int k = 0; k < 8; k++)
+					{
+						//std::cout << "i: " << i << " j: " << j << " k: " << k << "\n";
+						if (img_res_fltr.at<uchar>(i+kernel_array[k].first,j+kernel_array[k].second) !=0)
+						{
+							//std::cout << "got interesting points do work with at... \n" << i << "," << j << "\n";
+							res_color += int(img_res_fltr.at<uchar>(i+kernel_array[k].first,j+kernel_array[k].second));
+							res_color_divisor++;
+							if (sample)
+								std::cout << "I: " << i+kernel_array[k].first << " J: " << j+kernel_array[k].second << "\n";
+						}
+					}
+					sample = false;
+					//std::cout << "res color: " << res_color << " res divisor: " << res_color_divisor << "\n";
+					if (res_color_divisor > 0)
+					{
+						img_res_fltr.at<uchar>(i,j) = res_color / res_color_divisor;
+						//std::cout << "new value at " << i << "," << j << ": " << int(res_color/res_color_divisor) << "\n";
+					}
+
+				}
+				if (outside_drawing.at<uchar>(i,j) == 0)
+				{
+					img_res_fltr.at<uchar>(i,j) = 0;
+					// TODO reset discarded depth pts or copy used points to new ZEROES mat...
+				}
+			}
+		}
+
+		cv::imshow("filtered zwin", img_res_fltr);
+
+
 		cv::waitKey();
 	}
 
