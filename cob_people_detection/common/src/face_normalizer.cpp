@@ -702,7 +702,7 @@ bool FaceNormalizer::synth_head_poses(cv::Mat& img,cv::Mat& depth,std::vector<cv
 	int N=30;
 	std::cout<<"Synthetic POSES"<<std::endl;
 
-	for(int i=15;i<N;i++)
+	for(int i=0;i<N;i++)
 	{
 		/*switch(i)
 		{
@@ -909,6 +909,8 @@ bool FaceNormalizer::projectPointCloud(cv::Mat& img, cv::Mat& depth, cv::Mat& im
 			}
 		}
 
+		proj_map.clear();
+
 		// blur to fill gaps in face image, erode and dilate to cut out any "straggler" points and other parts drifting away from the face for lack of depth point cohesion
 		//cv::Mat src_copy = img_res_zwin.clone();
 		//cv::Mat src_erode, src_dilate;
@@ -948,6 +950,9 @@ bool FaceNormalizer::projectPointCloud(cv::Mat& img, cv::Mat& depth, cv::Mat& im
 		// Draw contours + hull results
 		cv::Mat outside_drawing = cv::Mat::zeros( threshold_output.size(), CV_8UC1 );
 		cv::drawContours( outside_drawing, contours, outside_contour_index, 255, CV_FILLED, 8, vector<Vec4i>(), 0, Point() );
+
+		contours.clear();
+		hierarchy.clear();
 
 		// apply smoothing filter on points inside of contour, remove straggler points from color and depth matrix
 		img_res_fltr = img_res_zwin.clone();
