@@ -174,6 +174,8 @@ bool FaceNormalizer::synthFace(cv::Mat &RGB,cv::Mat& XYZ, cv::Size& norm_size,st
 			// TODO ^ this should be a simple conversion to 64bit floating point format, but the result is a binary (black/white) image??
 			cv::resize(synth_images[n],synth_images[n],norm_size_,0,0);
 		}
+		cv::imshow("result", synth_images[n]);
+		cv::waitKey();
 
 		if(debug_)dump_img(synth_images[n],"size");
 	}
@@ -697,12 +699,12 @@ bool FaceNormalizer::synth_head_poses(cv::Mat& img,cv::Mat& depth,std::vector<cv
 //  }
 
 	//number of poses
-	int N=7;
+	int N=30;
 	std::cout<<"Synthetic POSES"<<std::endl;
 
-	for(int i=3;i<N;i++)
+	for(int i=15;i<N;i++)
 	{
-		switch(i)
+		/*switch(i)
 		{
 			case 0:
 			{
@@ -739,7 +741,11 @@ bool FaceNormalizer::synth_head_poses(cv::Mat& img,cv::Mat& depth,std::vector<cv
 				alpha=Eigen::AngleAxis<float>((float)-0.05*M_PI, z_new);
 				break;
 			}
-		}
+		}*/
+		if(i<10)alpha=Eigen::AngleAxis<float>((float)i*0.01*M_PI, x_new);
+		else if(i>=10&&i<20)alpha=Eigen::AngleAxis<float>(((float)i-10)*0.01*M_PI, y_new);
+		else if(i>=20&&i<=30)alpha=Eigen::AngleAxis<float> (((float)i-20)*0.01*M_PI, z_new);
+
 		// ----- artificial head pose rotation
 
 		T_rot.setIdentity();
@@ -806,7 +812,6 @@ bool FaceNormalizer::synth_head_poses(cv::Mat& img,cv::Mat& depth,std::vector<cv
 		if(img.channels()==3)cv::cvtColor(img,img,CV_RGB2GRAY);
 
 		projectPointCloud(img,workmat,imgres,dmres);
-		//cv::imshow("workmat", imgres);
 
 		if(debug_)dump_img(imgres,"uncropped");
 
@@ -817,8 +822,6 @@ bool FaceNormalizer::synth_head_poses(cv::Mat& img,cv::Mat& depth,std::vector<cv
 		}
 		imgres=imgres(roi);
 		imgres=imgres(cv::Rect(2,2,imgres.cols-4,imgres.rows-4));
-		//cv::imshow("res", imgres);
-		//cv::waitKey();
 		synth_images.push_back(imgres);
 		synth_depths.push_back(dmres);
 	}
@@ -827,7 +830,7 @@ return true;
 }
 
 // construct path to depth and color image data, read/load xml and bmp.
-bool FaceNormalizer::projectPointCloud(cv::Mat& img, cv::Mat& depth, cv::Mat& img_res, cv::Mat& depth_res)
+bool FaceNormalizer::projectPointCloud(cv::Mat& img, cv::Mat& depth, cv::Mat& img_res_fltr, cv::Mat& depth_res)
 {
 	//cv::imshow("received", img);
 	int channels=img.channels();
@@ -859,103 +862,11 @@ bool FaceNormalizer::projectPointCloud(cv::Mat& img, cv::Mat& depth, cv::Mat& im
 
 	if(channels==1)
 	{
-		// assign color values to calculated image coordinates
-		cv::add(img_res,0,img_res);
-		cv::add(depth_res,0,depth_res);
 		unsigned char* pc_rgb_ptr=pc_rgb.ptr<unsigned char>(0,0);
-
-		// Occ_grid: OCCUPANCY! density of projected points in this image point
-		cv::Mat occ_grid=cv::Mat::ones(sensor_size,CV_32FC1);
-		cv::Mat img_cum=cv::Mat::zeros(sensor_size,CV_32FC1);
-		cv::Mat occ_grid2=cv::Mat::ones(sensor_size,CV_32FC1);
-		for(int i=0;i<pc_proj.rows;++i)
-		{
-			cv::Vec2f txty=*pc_proj_ptr;
-			tx=(int)round(txty[0]);
-			ty=(int)round(txty[1]);
-
-
-			if (ty>1 && tx>1 && ty<sensor_size.height-1 && tx<sensor_size.width-1 && !isnan(ty) && !isnan(tx) )
-			{
-				// TODO
-				// present function accounts for gaps in projected image, but not for stacking points
-				// (points assigned directly set their color to location instead of adding, and set occ_grid2 at location to 0, which alter multiplies with the occupancy counter)
-				img_res.at<unsigned char>(ty,tx)=(*pc_rgb_ptr);
-				occ_grid2.at<float>(ty,tx)=0.0;
-				img_cum.at<float>(ty+1,tx)+=(*pc_rgb_ptr);
-				img_cum.at<float>(ty-1,tx)+=(*pc_rgb_ptr);
-				img_cum.at<float>(ty,tx-1)+=(*pc_rgb_ptr);
-				img_cum.at<float>(ty,tx+1)+=(*pc_rgb_ptr);
-				img_cum.at<float>(ty+1,tx+1)+=(*pc_rgb_ptr);
-				img_cum.at<float>(ty-1,tx-1)+=(*pc_rgb_ptr);
-				img_cum.at<float>(ty-1,tx+1)+=(*pc_rgb_ptr);
-				img_cum.at<float>(ty+1,tx-1)+=(*pc_rgb_ptr);
-
-				occ_grid.at<float>(ty,tx)+=  1;
-				occ_grid.at<float>(ty+1,tx)+=1;
-				occ_grid.at<float>(ty-1,tx)+=1;
-				occ_grid.at<float>(ty,tx+1)+=1;
-				occ_grid.at<float>(ty,tx-1)+=1;
-				occ_grid.at<float>(ty+1,tx+1)+=1;
-				occ_grid.at<float>(ty-1,tx-1)+=1;
-				occ_grid.at<float>(ty-1,tx+1)+=1;
-				occ_grid.at<float>(ty+1,tx-1)+=1;
-
-				depth_res.at<cv::Vec3f>(ty,tx)=((*pc_ptr));
-			}
-			pc_rgb_ptr++;
-			pc_proj_ptr++;
-			pc_ptr++;
-		}
-
-		//cv::imshow("Imgres", img_res);
-		//occ_grid=occ_grid;
-		img_cum=img_cum / (occ_grid.mul(occ_grid2)-1);
-		img_cum.convertTo(img_cum,CV_8UC1);
-		cv::add(img_res,img_cum,img_res);
-		std::cout << "finished old version \n";
-		cv::imshow("alt", img_res);
-
-		// Assign Color without spread
-		cv::Mat img_res_nos=cv::Mat::zeros(480,640,CV_8UC1);;
-		cv::Mat occ_grid_nos=cv::Mat::ones(sensor_size,CV_32FC1);
-		cv::Mat occ_grid2_nos=cv::Mat::ones(sensor_size,CV_32FC1);
-		//reset pointers
-		pc_ptr=pc_xyz.ptr<cv::Vec3f>(0,0);
-		pc_proj_ptr=pc_proj.ptr<cv::Vec2f>(0,0);
-		pc_rgb_ptr=pc_rgb.ptr<unsigned char>(0,0);
-		for(int i=0;i<pc_proj.rows;++i)
-		{
-			cv::Vec2f txty=*pc_proj_ptr;
-			tx=(int)round(txty[0]);
-			ty=(int)round(txty[1]);
-			if (ty>1 && tx>1 && ty<sensor_size.height-1 && tx<sensor_size.width-1 && !isnan(ty) && !isnan(tx) )
-			{
-				img_res_nos.at<unsigned char>(ty,tx)+=(*pc_rgb_ptr);
-				occ_grid.at<float>(ty,tx)+=  1;
-				if (occ_grid.at<float>(ty,tx) >1)
-				{
-					//std::cout << "projection stacking at " << ty << ","<< tx << "resulting color entry: " << img_res_nos.at<unsigned char>(ty,tx) << "\n";
-				}
-				depth_res.at<cv::Vec3f>(ty,tx)=((*pc_ptr));
-			}
-			pc_rgb_ptr++;
-			pc_proj_ptr++;
-			pc_ptr++;
-		}
-		//cv::imshow("neu", img_res_nos);
-		//cv::imshow("result", img_res);
-		//cv::waitKey();
 
 		// Assign Color, no spread, singular assignment (lowest z-value gets the point)
 		cv::Mat img_res_zwin=cv::Mat::zeros(480,640,CV_8UC1);
 		cv::Mat depth_res_zwin=cv::Mat::zeros(480,640,CV_32FC3);
-		cv::Mat occ_grid_zwin=cv::Mat::ones(sensor_size,CV_32FC1);
-		cv::Mat occ_grid2_zwin=cv::Mat::ones(sensor_size,CV_32FC1);
-		//reset pointers
-		pc_ptr=pc_xyz.ptr<cv::Vec3f>(0,0);
-		pc_proj_ptr=pc_proj.ptr<cv::Vec2f>(0,0);
-		pc_rgb_ptr=pc_rgb.ptr<unsigned char>(0,0);
 
 		std::map <std::pair<int,int> ,std::vector<std::pair<cv::Vec3f, unsigned char > > > proj_map;
 		std::vector<std::vector<cv::Vec3f> > proj_points;
@@ -967,15 +878,9 @@ bool FaceNormalizer::projectPointCloud(cv::Mat& img, cv::Mat& depth, cv::Mat& im
 			ty=(int)round(txty[1]);
 			if (ty>1 && tx>1 && ty<sensor_size.height-1 && tx<sensor_size.width-1 && !isnan(ty) && !isnan(tx) )
 			{
-				// fill map with point coordinates and color values, sorted by x,y values they are projected to
+				// fill map with point coordinates and color values, key: x,y values they are projected to
 				cv::Vec3f txyz = *pc_ptr;
 				proj_map[std::pair<int, int>(tx,ty)].push_back(std::make_pair(txyz, *pc_rgb_ptr));
-				//proj_map.insert(std::make_pair(std::make_pair(tx, ty),txyz));
-				//std::cout << "pushed vec3f rgb pair back \n";
-				//img_res_nos.at<unsigned char>(ty,tx)+=(*pc_rgb_ptr);
-				//occ_grid_zwin.at<float>(ty,tx)+=  1;
-				//std::cout << "occupancy at point: " << occ_grid_zwin.at<float>(ty,tx) << "map at point (key) " << proj_map[std::pair<int, int>(tx,ty)].size() << "\n";
-				//depth_res.at<cv::Vec3f>(ty,tx)=((*pc_ptr));
 			}
 			pc_rgb_ptr++;
 			pc_proj_ptr++;
@@ -1003,21 +908,18 @@ bool FaceNormalizer::projectPointCloud(cv::Mat& img, cv::Mat& depth, cv::Mat& im
 				}
 			}
 		}
-		cv::imshow("zwin",img_res_zwin);
 
-		// blur, erode and dilate to cut out any "straggler" points and other parts drifting away from the face for lack of depth point cohesion
-		cv::Mat src_copy = img_res_zwin.clone();
-		cv::Mat src_erode, src_dilate;
+		// blur to fill gaps in face image, erode and dilate to cut out any "straggler" points and other parts drifting away from the face for lack of depth point cohesion
+		//cv::Mat src_copy = img_res_zwin.clone();
+		//cv::Mat src_erode, src_dilate;
 		int erosion_size = 2;
+		cv::Mat contour_mat=cv::Mat::zeros(480,640,CV_8UC1);
 		cv::Mat element = cv::getStructuringElement( MORPH_RECT, Size( 2*erosion_size + 1, 2*erosion_size+1 ));
-		cv::GaussianBlur(src_copy,src_copy, cv::Size(3,3),0,0);
-		cv::erode(src_copy,src_erode,element);
-		cv::erode(src_erode,src_erode,element);
-		cv::dilate(src_erode, src_dilate, element);
+		cv::GaussianBlur(img_res_zwin,contour_mat, cv::Size(3,3),0,0);
+		cv::erode(contour_mat,contour_mat,element);
+		cv::erode(contour_mat,contour_mat,element);
+		cv::dilate(contour_mat, contour_mat, element);
 		//cv::dilate(src_dilate, src_dilate, element);
-		//cv::imshow("eroded zwin", src_erode);
-		//cv::imshow("dilated zwin", src_dilate);
-
 
 		// Outer Contour of dilated image
 		int thresh = 5;
@@ -1028,10 +930,8 @@ bool FaceNormalizer::projectPointCloud(cv::Mat& img, cv::Mat& depth, cv::Mat& im
 		cv::Mat threshold_output;
 		std::vector<vector<Point> > contours;
 		std::vector<Vec4i> hierarchy;
-
 		// Detect edges using Threshold
-		cv::threshold( src_dilate, threshold_output, thresh, 255, THRESH_BINARY );
-
+		cv::threshold( img_res_zwin, threshold_output, thresh, 255, THRESH_BINARY );
 		// Find contours, find outside contour (assuming it has most points)
 		cv::findContours( threshold_output, contours, hierarchy, CV_RETR_TREE, CV_CHAIN_APPROX_NONE, Point(0, 0) );
 		for( int i = 0; i< contours.size(); i++ )
@@ -1039,7 +939,6 @@ bool FaceNormalizer::projectPointCloud(cv::Mat& img, cv::Mat& depth, cv::Mat& im
 			if (contours[i].size() > contours[outside_contour_index].size())
 				outside_contour_index = i;
 		}
-
 		// Find the convex hull object for each contour
 		std::vector<vector<Point> >hull( contours.size() );
 		for( int i = 0; i < contours.size(); i++ )
@@ -1049,39 +948,26 @@ bool FaceNormalizer::projectPointCloud(cv::Mat& img, cv::Mat& depth, cv::Mat& im
 		// Draw contours + hull results
 		cv::Mat outside_drawing = cv::Mat::zeros( threshold_output.size(), CV_8UC1 );
 		cv::drawContours( outside_drawing, contours, outside_contour_index, 255, CV_FILLED, 8, vector<Vec4i>(), 0, Point() );
-		cv::imshow( "Outside Contour", outside_drawing);
 
 		// apply smoothing filter on points inside of contour, remove straggler points from color and depth matrix
-		cv::Mat img_res_fltr = img_res_zwin.clone();
-		cv::Mat depth_res_fltr = depth_res_zwin.clone();
-		//cv::threshold(img_res_fltr, img_res_fltr, 125, 0, 3);
-		bool sample = true;
+		img_res_fltr = img_res_zwin.clone();
 		std::pair<int,int> kernel_array[8] = {std::make_pair(1,0), std::make_pair(1,1), std::make_pair(0,1), std::make_pair(-1,1), std::make_pair(-1,0), std::make_pair(-1,-1), std::make_pair(0,-1), std::make_pair(1,-1) };
-		//std::vector<std::pair<int, int> > filter_kernel { std::make_pair(1,0), std::make_pair(1,1), std::make_pair(0,1), std::make_pair(-1,1), std::make_pair(-1,0), std::make_pair(-1,-1), std::make_pair(0,-1), std::make_pair(1,-1) };
 		for (int i = 1; i<img_res_fltr.cols-1; i++)
 		{
 			for (int j = 1; j<img_res_fltr.rows-1; j++)
 			{
 				if (outside_drawing.at<uchar>(i,j) > 0 && img_res_fltr.at<uchar>(i,j) == 0)
 				{
-					//std::cout << "should be filtering ... ";
 					int res_color_divisor=0;
 					int res_color=0;
-					if (sample)
-						std::cout << "Lets see that shifting box.\n";
 					for (int k = 0; k < 8; k++)
 					{
-						//std::cout << "i: " << i << " j: " << j << " k: " << k << "\n";
 						if (img_res_fltr.at<uchar>(i+kernel_array[k].first,j+kernel_array[k].second) !=0)
 						{
-							//std::cout << "got interesting points do work with at... \n" << i << "," << j << "\n";
 							res_color += int(img_res_fltr.at<uchar>(i+kernel_array[k].first,j+kernel_array[k].second));
 							res_color_divisor++;
-							if (sample)
-								std::cout << "I: " << i+kernel_array[k].first << " J: " << j+kernel_array[k].second << "\n";
 						}
 					}
-					sample = false;
 					//std::cout << "res color: " << res_color << " res divisor: " << res_color_divisor << "\n";
 					if (res_color_divisor > 0)
 					{
@@ -1097,11 +983,15 @@ bool FaceNormalizer::projectPointCloud(cv::Mat& img, cv::Mat& depth, cv::Mat& im
 				}
 			}
 		}
-
-		cv::imshow("filtered zwin", img_res_fltr);
-
-
-		cv::waitKey();
+		//cv::imshow("alt", img_res);
+		//cv::imshow("eroded zwin", src_erode);
+		//cv::imshow("dilated zwin", src_dilate);
+		//cv::imshow("zwin", img_res_zwin);
+		//cv::imshow("Outside Contour", outside_drawing);
+		//std::cout << "F";
+		//cv::imshow("filtered zwin", img_res_fltr);
+		//std::cout << "G";
+		//cv::waitKey();
 	}
 
 	/*if(channels==3)
