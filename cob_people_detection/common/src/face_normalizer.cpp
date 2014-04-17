@@ -699,7 +699,7 @@ bool FaceNormalizer::synth_head_poses(cv::Mat& img,cv::Mat& depth,std::vector<cv
 //  }
 
 	//number of poses
-	int N=30;
+	int N=32;
 	std::cout<<"Synthetic POSES"<<std::endl;
 
 	for(int i=0;i<N;i++)
@@ -742,10 +742,13 @@ bool FaceNormalizer::synth_head_poses(cv::Mat& img,cv::Mat& depth,std::vector<cv
 				break;
 			}
 		}*/
-		if(i<10)alpha=Eigen::AngleAxis<float>((float)i*0.01*M_PI, x_new);
-		else if(i>=10&&i<20)alpha=Eigen::AngleAxis<float>(((float)i-10)*0.01*M_PI, y_new);
-		else if(i>=20&&i<=30)alpha=Eigen::AngleAxis<float> (((float)i-20)*0.01*M_PI, z_new);
+		Eigen::Vector3f xy_new = x_new+y_new;
+		Eigen::Vector3f yx_new = x_new-y_new;
 
+		if(i<8)alpha=Eigen::AngleAxis<float>((-0.06 + (float)i*0.015)*M_PI, x_new);
+		else if(i>=8&&i<16)alpha=Eigen::AngleAxis<float>((-0.06 + ((float)i-8)*0.015)*M_PI, y_new);
+		else if(i>=16&&i<=24)alpha=Eigen::AngleAxis<float> ((-0.06 + ((float)i-16)*0.015)*M_PI, xy_new);
+		else if(i>=24&&i<=32)alpha=Eigen::AngleAxis<float> ((-0.06 + ((float)i-24)*0.015)*M_PI, yx_new);
 		// ----- artificial head pose rotation
 
 		T_rot.setIdentity();
