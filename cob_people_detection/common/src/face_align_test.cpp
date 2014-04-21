@@ -1,9 +1,7 @@
-
 #include"cob_people_detection/face_normalizer.h"
 #include<iostream>
 #include<opencv/cv.h>
 #include<opencv/highgui.h>
-
 
 int main(int argc, const char *argv[])
 {
@@ -22,12 +20,13 @@ int main(int argc, const char *argv[])
 	cv::Mat depth,img,xyz;
 	//else      i_path="/share/goa-tz/people_detection/eval/Kinect3DSelect/";
 	// i_path="/share/goa-tz/people_detection/eval/KinectIPA/";
-	std::string training_path = "/home/rmb-ss/.ros/cob_people_detection/files/training_data/";
+	std::string training_path = "/home/stefan/.ros/cob_people_detection/files/training_data/";
 	std::string tdata_path = training_path + "tdata.xml";
 
 	// search tdata for scenes associated to label, store scene numbers in vector
 	std::vector<int> scene_numbers;
 	std::vector<float> scene_scores;
+	std::string label;
 
 	cv::FileStorage fileStorage(tdata_path, cv::FileStorage::READ);
 	if (!fileStorage.isOpened())
@@ -43,23 +42,26 @@ int main(int argc, const char *argv[])
 		std::ostringstream tag_label;
 		tag_label << "label_" << i;
 		std::cout<<"tag label: " << tag_label << " done\n";
-		std::string label = (std::string)fileStorage[tag_label.str().c_str()];
+		label = (std::string)fileStorage[tag_label.str().c_str()];
 		std::cout<<"label: " << label << std::endl;
-		if(label == "Stefan")
-			scene_numbers.push_back(i);
+		if(label == "Stefan") scene_numbers.push_back(i);
 	}
+	fileStorage.release();
 
 	// read scenes associated with label, rate for seeding viability
 	for(int i=0; i<scene_numbers.size(); i++)
 	{
-		fn.read_scene_from_training(xyz,img,training_path, scene_numbers.at(i));
-		fn.frontFaceImage(img,xyz,scene_scores);
+		if (i==10)
+		{
+			fn.read_scene_from_training(xyz,img,training_path, scene_numbers.at(i));
+			fn.frontFaceImage(img,xyz,scene_scores);
+		}
 	}
 
-	// pick and display best seed
+	// find best seed to created images from
 	int best_seed_id=-1;
 	float best_score =10;
-	for(int i=0; i<scene_numbers.size();i++)
+	for(int i=0; i<scene_scores.size();i++)
 	{
 		if (scene_scores[i]<best_score)
 		{
@@ -67,21 +69,22 @@ int main(int argc, const char *argv[])
 			best_score=scene_scores[i];
 		}
 	}
-	std::cout<<"found best seed. ID: " << best_seed_id << " Score: " << scene_scores[best_seed_id] << std::endl;
+	best_seed_id = 10;
 
+	//std::cout<<"Best source image ID: " << best_seed_id << " Score: " << scene_scores[best_seed_id] << std::endl;
+	scene_numbers.clear();
+	scene_scores.clear();
 
 	// create synth images from seed
 	cv::Size norm_size=cv::Size(100,100);
-	cv::Mat wmat1,wmat2;
 	std::vector<cv::Mat> synth_images;
 	std::vector<cv::Mat> synth_depths;
 
+	//load source image, create training data
 	fn.read_scene_from_training(xyz,img,training_path, best_seed_id);
-	img.copyTo(wmat1);
-	xyz.copyTo(wmat2);
+	fn.synthFace(img,xyz,norm_size,synth_images,synth_depths,training_path, label);
 
-	fn.synthFace(wmat1,wmat2,norm_size,synth_images,synth_depths);
-
+	//cv::FileStorage fileStorage(tdata_path, cv::FileStorage::WRITE);
 
 	// call member functions of FaceNormalizer
 
@@ -100,6 +103,7 @@ int main(int argc, const char *argv[])
 //		cv::imshow("NORMALIZED",synth_images[j]);
 //		std::cout<<j<<std::endl;
 //		cv::waitKey();
+
 //	}
 
 	return 0;
