@@ -792,7 +792,7 @@ bool FaceNormalizer::synth_head_poses(cv::Mat& img,cv::Mat& depth,std::vector<cv
 		std::cout << "values: " << round(nose_uv.x-dim_x*0.5) << ", "  << round(nose_uv.y-dim_y*0.5)-10 << "\n" << dim_x << ", " << dim_y << "\n";
 		//roi=cv::Rect(round(nose_uv.x-dim_x*0.5),round(nose_uv.y-dim_y*0.5)-10,dim_x,dim_y);
 		//roi=cv::Rect(round(lefteye_uv.x-dim_x*0.25),round(lefteye_uv.y-dim_y*0.25),dim_x,dim_y);
-		roi=cv::Rect(round(nose_uv.x-75),round(nose_uv.y-75),150,150);
+		roi=cv::Rect(round(nose_uv.x-60),round(nose_uv.y-60),120,120);
 		if(img.channels()==3)cv::cvtColor(img,img,CV_RGB2GRAY);
 
 		std::cout << " projecting";
@@ -820,6 +820,38 @@ bool FaceNormalizer::synth_head_poses(cv::Mat& img,cv::Mat& depth,std::vector<cv
 		cv::FileStorage fs(synth_depth_path, FileStorage::WRITE);
 		fs << "depthmap" << dmres;
 		fs.release();
+		//TODO:
+		//confirm if created image is recognized as face?
+
+		IplImage imgPtr = (IplImage)imgres;
+		double faces_increase_search_scale = 1.1;		// The factor by which the search window is scaled between the subsequent scans
+		int faces_drop_groups = 30;					// Minimum number (minus 1) of neighbor rectangles that makes up an object.
+		int faces_min_search_scale_x = 10;			// Minimum search scale x
+		int faces_min_search_scale_y = 10;			// Minimum search scale y
+		bool reason_about_3dface_size = true;			// if true, the 3d face size is determined and only faces with reasonable size are accepted
+		double face_size_max_m = 0.35;					// the maximum feasible face diameter [m] if reason_about_3dface_size is enabled
+		double face_size_min_m = 0.1;					// the minimum feasible face diameter [m] if reason_about_3dface_size is enabled
+		double max_face_z_m = 8.0;					// maximum distance [m] of detected faces to the sensor
+		bool debug = false;								// enables some debug outputs
+		//std::string faceCascadePath = ros::package::getPath("cob_people_detection") + "/common/files/" + "haarcascades/haarcascade_frontalface_alt2.xml";
+		std::string faceCascadePath = "/home/stefan/git/cob_people_perception/cob_people_detection/common/files/haarcascades/haarcascade_frontalface_alt2.xml";
+		CvHaarClassifierCascade* m_face_cascade = (CvHaarClassifierCascade*)cvLoad(faceCascadePath.c_str(), 0, 0, 0 );	//"ConfigurationFiles/haarcascades/haarcascade_frontalface_alt2.xml", 0, 0, 0 );
+		CvMemStorage* m_storage = cvCreateMemStorage(0);
+		CvSeq* faces = cvHaarDetectObjects(&imgPtr,	m_face_cascade,	m_storage, faces_increase_search_scale, faces_drop_groups, CV_HAAR_DO_CANNY_PRUNING, cv::Size(faces_min_search_scale_x, faces_min_search_scale_y));
+		std::cout << "gots us som faces in that new image: " << faces->total << std::endl;
+
+		//for(int i=0; i<faces->total; i++)
+		//{
+			//cv::Rect* face = (cv::Rect*)cvGetSeqElem(faces, i);
+	//			heads_color_images[head].locateROI(parentSize, roiOffset);
+	//			face->x += roiOffset.x;		// todo: check what happens if the original matrix is used without roi
+	//			face->y += roiOffset.y;
+			// exclude faces that are too small for the head bounding box
+			//if (face->width > 0.4*heads_color_images[head].cols && face->height > 0.4*heads_color_images[head].rows)
+			//	face_coordinates[head].push_back(*face);
+		//}
+
+
 
 		/*
 		//rewrite tdata.xml with newly added images.
@@ -853,6 +885,23 @@ bool FaceNormalizer::synth_head_poses(cv::Mat& img,cv::Mat& depth,std::vector<cv
 			fileStorageWrite.release();
 		}*/
 	}
+	IplImage imgPtr = (IplImage)img;
+	double faces_increase_search_scale = 1.1;		// The factor by which the search window is scaled between the subsequent scans
+	int faces_drop_groups = 30;					// Minimum number (minus 1) of neighbor rectangles that makes up an object.
+	int faces_min_search_scale_x = 10;			// Minimum search scale x
+	int faces_min_search_scale_y = 10;			// Minimum search scale y
+	bool reason_about_3dface_size = true;			// if true, the 3d face size is determined and only faces with reasonable size are accepted
+	double face_size_max_m = 0.35;					// the maximum feasible face diameter [m] if reason_about_3dface_size is enabled
+	double face_size_min_m = 0.1;					// the minimum feasible face diameter [m] if reason_about_3dface_size is enabled
+	double max_face_z_m = 8.0;					// maximum distance [m] of detected faces to the sensor
+	bool debug = false;								// enables some debug outputs
+	//std::string faceCascadePath = ros::package::getPath("cob_people_detection") + "/common/files/" + "haarcascades/haarcascade_frontalface_alt2.xml";
+	std::string faceCascadePath = "/home/stefan/git/cob_people_perception/cob_people_detection/common/files/haarcascades/haarcascade_frontalface_alt2.xml";
+	CvHaarClassifierCascade* m_face_cascade = (CvHaarClassifierCascade*)cvLoad(faceCascadePath.c_str(), 0, 0, 0 );	//"ConfigurationFiles/haarcascades/haarcascade_frontalface_alt2.xml", 0, 0, 0 );
+	CvMemStorage* m_storage = cvCreateMemStorage(0);
+	CvSeq* faces = cvHaarDetectObjects(&imgPtr,	m_face_cascade,	m_storage, faces_increase_search_scale, faces_drop_groups, CV_HAAR_DO_CANNY_PRUNING, cv::Size(faces_min_search_scale_x, faces_min_search_scale_y));
+	std::cout << "Face in Source IMG? " << faces->total << std::endl;
+
 
 	std::cout << "pushing final image to retain vector functionality";
 	synth_images.push_back(imgres);
@@ -982,8 +1031,6 @@ bool FaceNormalizer::projectPointCloud(cv::Mat& img, cv::Mat& depth, cv::Mat& im
 		// apply smoothing filter on points inside of contour, remove straggler points from color and depth matrix
 		img_res_fltr = img_res_zwin.clone();
 		depth_res = depth_res_zwin.clone();
-		img_res_fltr.at<uchar>(320,240) = 0;
-		depth_res.at<cv::Vec3f>(320,240) = cv::Vec3f(-1000,-1000,-1000);
 
 		std::pair<int,int> kernel_array[8] = {std::make_pair(1,0), std::make_pair(1,1), std::make_pair(0,1), std::make_pair(-1,1), std::make_pair(-1,0), std::make_pair(-1,-1), std::make_pair(0,-1), std::make_pair(1,-1) };
 		std::cout << " filtering - ";
@@ -1020,38 +1067,6 @@ bool FaceNormalizer::projectPointCloud(cv::Mat& img, cv::Mat& depth, cv::Mat& im
 				}
 			}
 		}
-
-		//TODO:
-		//confirm if created image is recognized as face?
-		/*
-		IplImage imgPtr = (IplImage)img_res_fltr;
-		double faces_increase_search_scale = 1.1;		// The factor by which the search window is scaled between the subsequent scans
-		int faces_drop_groups = 30;					// Minimum number (minus 1) of neighbor rectangles that makes up an object.
-		int faces_min_search_scale_x = 10;			// Minimum search scale x
-		int faces_min_search_scale_y = 10;			// Minimum search scale y
-		bool reason_about_3dface_size = true;			// if true, the 3d face size is determined and only faces with reasonable size are accepted
-		double face_size_max_m = 0.35;					// the maximum feasible face diameter [m] if reason_about_3dface_size is enabled
-		double face_size_min_m = 0.1;					// the minimum feasible face diameter [m] if reason_about_3dface_size is enabled
-		double max_face_z_m = 8.0;					// maximum distance [m] of detected faces to the sensor
-		bool debug = false;								// enables some debug outputs
-		//std::string faceCascadePath = ros::package::getPath("cob_people_detection") + "/common/files/" + "haarcascades/haarcascade_frontalface_alt2.xml";
-		std::string faceCascadePath = "/home/stefan/git/cob_people_perception/cob_people_detection/common/files/haarcascades/haarcascade_frontalface_alt2.xml";
-		CvHaarClassifierCascade* m_face_cascade = (CvHaarClassifierCascade*)cvLoad(faceCascadePath.c_str(), 0, 0, 0 );	//"ConfigurationFiles/haarcascades/haarcascade_frontalface_alt2.xml", 0, 0, 0 );
-		CvMemStorage* m_storage = cvCreateMemStorage(0);
-		CvSeq* faces = cvHaarDetectObjects(&imgPtr,	m_face_cascade,	m_storage, faces_increase_search_scale, faces_drop_groups, CV_HAAR_DO_CANNY_PRUNING, cv::Size(faces_min_search_scale_x, faces_min_search_scale_y));
-		std::cout << "gots us som faces in that new image: " << faces->total << std::endl;
-
-		//for(int i=0; i<faces->total; i++)
-		//{
-			//cv::Rect* face = (cv::Rect*)cvGetSeqElem(faces, i);
-	//			heads_color_images[head].locateROI(parentSize, roiOffset);
-	//			face->x += roiOffset.x;		// todo: check what happens if the original matrix is used without roi
-	//			face->y += roiOffset.y;
-			// exclude faces that are too small for the head bounding box
-			//if (face->width > 0.4*heads_color_images[head].cols && face->height > 0.4*heads_color_images[head].rows)
-			//	face_coordinates[head].push_back(*face);
-		//}
-		*/
 
 		//cv::imshow("alt", img_res);
 		//cv::imshow("eroded zwin", src_erode);
