@@ -26,7 +26,10 @@ int main(int argc, const char *argv[])
 	// search tdata for scenes associated to label, store scene numbers in vector
 	std::vector<int> scene_numbers;
 	std::vector<float> scene_scores;
-	std::string label;
+	std::string label, src_label;
+	std::cout << "Enter label to work with: \n";
+	std::cin >> src_label;
+
 
 	cv::FileStorage fileStorage(tdata_path, cv::FileStorage::READ);
 	if (!fileStorage.isOpened())
@@ -41,12 +44,18 @@ int main(int argc, const char *argv[])
 		// labels
 		std::ostringstream tag_label;
 		tag_label << "label_" << i;
-		std::cout<<"tag label: " << tag_label << " done\n";
+		//std::cout<<"tag label: " << tag_label << " done\n";
 		label = (std::string)fileStorage[tag_label.str().c_str()];
-		std::cout<<"label: " << label << std::endl;
-		if(label == "Stefan") scene_numbers.push_back(i);
+		//std::cout<<"label: " << label << std::endl;
+		if(label == src_label) scene_numbers.push_back(i);
 	}
 	fileStorage.release();
+
+	if (scene_numbers.size()==0)
+	{
+		std::cout << "No entries of that label in tdata!\n";
+		return 0;
+	}
 
 	// read scenes associated with label, rate for seeding viability
 	for(int i=0; i<scene_numbers.size(); i++)

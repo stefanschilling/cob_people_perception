@@ -136,7 +136,6 @@ bool FaceNormalizer::synthFace(cv::Mat &RGB,cv::Mat& XYZ, cv::Size& norm_size,st
   if(config_.align)
   {
     cv::Mat GRAY;
-    std::cout << "testtestets\n";
     cv::cvtColor(RGB,GRAY,CV_RGB2GRAY);
     isolateFace(GRAY,XYZ);
 
