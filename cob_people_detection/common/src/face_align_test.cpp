@@ -20,8 +20,15 @@ int main(int argc, const char *argv[])
 	cv::Mat depth,img,xyz;
 	//else      i_path="/share/goa-tz/people_detection/eval/Kinect3DSelect/";
 	// i_path="/share/goa-tz/people_detection/eval/KinectIPA/";
-	std::string training_path = "/home/stefan/.ros/cob_people_detection/files/training_data/";
+	// std::string training_path = "/home/stefan/.ros/cob_people_detection/files/training_data/";
+	std::string training_path = "/home/rmb-ss/.ros/cob_people_detection/files/training_data/";
 	std::string tdata_path = training_path + "tdata.xml";
+
+	cv::FileStorage fileStorage(tdata_path, cv::FileStorage::READ);
+	if (!fileStorage.isOpened())
+	{
+		std::cout << "Error: load Training Data: Can't open " << tdata_path << ".\n" << std::endl;
+	}
 
 	// search tdata for scenes associated to label, store scene numbers in vector
 	std::vector<int> scene_numbers;
@@ -29,13 +36,6 @@ int main(int argc, const char *argv[])
 	std::string label, src_label;
 	std::cout << "Enter label to work with: \n";
 	std::cin >> src_label;
-
-
-	cv::FileStorage fileStorage(tdata_path, cv::FileStorage::READ);
-	if (!fileStorage.isOpened())
-	{
-		std::cout << "Error: load Training Data: Can't open " << tdata_path << ".\n" << std::endl;
-	}
 
 	int number_entries = (int)fileStorage["number_entries"];
 	scene_numbers.clear();
@@ -53,18 +53,18 @@ int main(int argc, const char *argv[])
 
 	if (scene_numbers.size()==0)
 	{
-		std::cout << "No entries of that label in tdata!\n";
+		std::cout << "No entries of that label in tdata.xml\n";
 		return 0;
 	}
 
 	// read scenes associated with label, rate for seeding viability
 	for(int i=0; i<scene_numbers.size(); i++)
 	{
-		if (i==10)
-		{
+		//if (i==10)
+		//{
 			fn.read_scene_from_training(xyz,img,training_path, scene_numbers.at(i));
 			fn.frontFaceImage(img,xyz,scene_scores);
-		}
+		//}
 	}
 
 	// find best seed to created images from
@@ -78,13 +78,14 @@ int main(int argc, const char *argv[])
 			best_score=scene_scores[i];
 		}
 	}
-	best_seed_id = 10;
+	//in case of data corruption, set ID of valid data manually
+	//best_seed_id = 10;
 
 	//std::cout<<"Best source image ID: " << best_seed_id << " Score: " << scene_scores[best_seed_id] << std::endl;
 	scene_numbers.clear();
 	scene_scores.clear();
 
-	// create synth images from seed
+	// create synth images from source
 	cv::Size norm_size=cv::Size(100,100);
 	std::vector<cv::Mat> synth_images;
 	std::vector<cv::Mat> synth_depths;
@@ -101,19 +102,9 @@ int main(int argc, const char *argv[])
 	//fn.normalizeFace(wmat1,xyz,norm_size,depth);
 	//fn.recordFace(synth_images[4],synth_depths[4]);
 
-
 	//synth_images.push_back(wmat1);
 	// depth.convertTo(depth,CV_8UC1,255);
 	// cv::equalizeHist(depth,depth);
-
-
-//	for(int j = 0;j<synth_images.size();j++)
-//	{
-//		cv::imshow("NORMALIZED",synth_images[j]);
-//		std::cout<<j<<std::endl;
-//		cv::waitKey();
-
-//	}
 
 	return 0;
 }
