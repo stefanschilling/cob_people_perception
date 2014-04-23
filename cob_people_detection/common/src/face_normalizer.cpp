@@ -181,8 +181,8 @@ bool FaceNormalizer::synthFace(cv::Mat &RGB,cv::Mat& XYZ, cv::Size& norm_size,st
 			// TODO ^ this should be a simple conversion to 64bit floating point format, but the result is a binary (black/white) image??
 			cv::resize(synth_images[n],synth_images[n],norm_size_,0,0);
 		}
-		cv::imshow("result", synth_images[n]);
-		cv::waitKey();
+		//cv::imshow("result", synth_images[n]);
+		//cv::waitKey();
 
 		if(debug_)dump_img(synth_images[n],"size");
 	}
@@ -737,7 +737,7 @@ bool FaceNormalizer::synth_head_poses(cv::Mat& img,cv::Mat& depth,std::vector<cv
 		Eigen::Vector3f pt;
 
 		std::cout << workmat.at<cv::Vec3f>(50,50) << std::endl;
-		std::cout << " moving points ";
+		std::cout << " transforming point coordinates \n";
 		for(int j=0;j<img.total();j++)
 		{
 			pt<<(*ptr)[0],(*ptr)[1],(*ptr)[2];
@@ -752,34 +752,28 @@ bool FaceNormalizer::synth_head_poses(cv::Mat& img,cv::Mat& depth,std::vector<cv
 			ptr++;
 		}
 		std::cout << workmat.at<cv::Vec3f>(50,50) << std::endl;
-		std::cout << " moving features individually ";
 
 		//transform feature coordinates separately to determine roi from
 		nose<<f_det_xyz_.nose.x,f_det_xyz_.nose.y,f_det_xyz_.nose.z;
 		lefteye<<f_det_xyz_.lefteye.x,f_det_xyz_.lefteye.y,f_det_xyz_.lefteye.z;
 		righteye<<f_det_xyz_.righteye.x,f_det_xyz_.righteye.y,f_det_xyz_.righteye.z;
-		std::cout << " assigned coordinates ";
 
 		lefteye=translation*T_rot*T_norm*lefteye;
-		std::cout << " left eye done -";
 		righteye=translation*T_rot*T_norm*righteye;
-		std::cout << " right eye done -";
 		nose=translation*T_rot*T_norm*nose;
-		std::cout << " nose done /n";
 		cv::Point2f lefteye_uv,righteye_uv,nose_uv;
 		cv::Point3f lefteye_xyz,righteye_xyz,nose_xyz;
 
 		lefteye_xyz = cv::Point3f(lefteye[0],lefteye[1],lefteye[2]);
 		righteye_xyz = cv::Point3f(righteye[0],righteye[1],righteye[2]);
 		nose_xyz = cv::Point3f(nose[0],nose[1],nose[2]);
-		std::cout << " packaged into Point2f/3fs ";
 
 		projectPoint(lefteye_xyz,lefteye_uv);
-		std::cout << " projected left eye ";
+		//std::cout << " projected left eye ";
 		projectPoint(righteye_xyz,righteye_uv);
-		std::cout << " projected right eye ";
+		//std::cout << " projected right eye ";
 		projectPoint(nose_xyz,nose_uv);
-		std::cout << " projected nose /n ";
+		//std::cout << " projected nose /n ";
 
 		//determine bounding box
 
@@ -788,14 +782,14 @@ bool FaceNormalizer::synth_head_poses(cv::Mat& img,cv::Mat& depth,std::vector<cv
 		//int off_x=((righteye_uv.x-lefteye_uv.x)*s -(righteye_uv.x-lefteye_uv.x))/2;
 		//int off_y=off_x;
 		int dim_y=dim_x;
-		std::cout << " calculating ROI \n";
-		std::cout << "values: " << round(nose_uv.x-dim_x*0.5) << ", "  << round(nose_uv.y-dim_y*0.5)-10 << "\n" << dim_x << ", " << dim_y << "\n";
+		//std::cout << " calculating ROI \n";
+		//std::cout << "values: " << round(nose_uv.x-dim_x*0.5) << ", "  << round(nose_uv.y-dim_y*0.5)-10 << "\n" << dim_x << ", " << dim_y << "\n";
 		//roi=cv::Rect(round(nose_uv.x-dim_x*0.5),round(nose_uv.y-dim_y*0.5)-10,dim_x,dim_y);
 		//roi=cv::Rect(round(lefteye_uv.x-dim_x*0.25),round(lefteye_uv.y-dim_y*0.25),dim_x,dim_y);
 		roi=cv::Rect(round(nose_uv.x-60),round(nose_uv.y-60),120,120);
 		if(img.channels()==3)cv::cvtColor(img,img,CV_RGB2GRAY);
 
-		std::cout << " projecting";
+		std::cout << " projecting points \n";
 		projectPointCloud(img,workmat,imgres,dmres);
 
 		if(debug_)dump_img(imgres,"uncropped");
@@ -820,9 +814,9 @@ bool FaceNormalizer::synth_head_poses(cv::Mat& img,cv::Mat& depth,std::vector<cv
 		cv::FileStorage fs(synth_depth_path, FileStorage::WRITE);
 		fs << "depthmap" << dmres;
 		fs.release();
+
 		//TODO:
 		//confirm if created image is recognized as face?
-
 		IplImage imgPtr = (IplImage)imgres;
 		double faces_increase_search_scale = 1.1;		// The factor by which the search window is scaled between the subsequent scans
 		int faces_drop_groups = 30;					// Minimum number (minus 1) of neighbor rectangles that makes up an object.
@@ -838,8 +832,10 @@ bool FaceNormalizer::synth_head_poses(cv::Mat& img,cv::Mat& depth,std::vector<cv
 		CvHaarClassifierCascade* m_face_cascade = (CvHaarClassifierCascade*)cvLoad(faceCascadePath.c_str(), 0, 0, 0 );	//"ConfigurationFiles/haarcascades/haarcascade_frontalface_alt2.xml", 0, 0, 0 );
 		CvMemStorage* m_storage = cvCreateMemStorage(0);
 		CvSeq* faces = cvHaarDetectObjects(&imgPtr,	m_face_cascade,	m_storage, faces_increase_search_scale, faces_drop_groups, CV_HAAR_DO_CANNY_PRUNING, cv::Size(faces_min_search_scale_x, faces_min_search_scale_y));
-		std::cout << "gots us som faces in that new image: " << faces->total << std::endl;
+		std::cout << "Face in new image: " << faces->total << std::endl;
 
+		//TODO
+		//if face can be found in picture, use to set ROI
 		//for(int i=0; i<faces->total; i++)
 		//{
 			//cv::Rect* face = (cv::Rect*)cvGetSeqElem(faces, i);
@@ -851,10 +847,10 @@ bool FaceNormalizer::synth_head_poses(cv::Mat& img,cv::Mat& depth,std::vector<cv
 			//	face_coordinates[head].push_back(*face);
 		//}
 
-
-
+		//TODO
+		//read out tdata, re-write xml with newly added content.
 		/*
-		//rewrite tdata.xml with newly added images.
+		//tdata.xml with newly added images.
 		cv::FileStorage fileStorageRead("/home/stefan/.ros/cob_people_detection/files/training_data/tdata.xml", cv::FileStorage::READ);
 		if (!fileStorageRead.isOpened())
 		{
@@ -890,11 +886,6 @@ bool FaceNormalizer::synth_head_poses(cv::Mat& img,cv::Mat& depth,std::vector<cv
 	int faces_drop_groups = 30;					// Minimum number (minus 1) of neighbor rectangles that makes up an object.
 	int faces_min_search_scale_x = 10;			// Minimum search scale x
 	int faces_min_search_scale_y = 10;			// Minimum search scale y
-	bool reason_about_3dface_size = true;			// if true, the 3d face size is determined and only faces with reasonable size are accepted
-	double face_size_max_m = 0.35;					// the maximum feasible face diameter [m] if reason_about_3dface_size is enabled
-	double face_size_min_m = 0.1;					// the minimum feasible face diameter [m] if reason_about_3dface_size is enabled
-	double max_face_z_m = 8.0;					// maximum distance [m] of detected faces to the sensor
-	bool debug = false;								// enables some debug outputs
 	//std::string faceCascadePath = ros::package::getPath("cob_people_detection") + "/common/files/" + "haarcascades/haarcascade_frontalface_alt2.xml";
 	std::string faceCascadePath = "/home/stefan/git/cob_people_perception/cob_people_detection/common/files/haarcascades/haarcascade_frontalface_alt2.xml";
 	CvHaarClassifierCascade* m_face_cascade = (CvHaarClassifierCascade*)cvLoad(faceCascadePath.c_str(), 0, 0, 0 );	//"ConfigurationFiles/haarcascades/haarcascade_frontalface_alt2.xml", 0, 0, 0 );
@@ -902,8 +893,7 @@ bool FaceNormalizer::synth_head_poses(cv::Mat& img,cv::Mat& depth,std::vector<cv
 	CvSeq* faces = cvHaarDetectObjects(&imgPtr,	m_face_cascade,	m_storage, faces_increase_search_scale, faces_drop_groups, CV_HAAR_DO_CANNY_PRUNING, cv::Size(faces_min_search_scale_x, faces_min_search_scale_y));
 	std::cout << "Face in Source IMG? " << faces->total << std::endl;
 
-
-	std::cout << "pushing final image to retain vector functionality";
+	// pushing back last image to retain vector functionality until better solution for function structure is found
 	synth_images.push_back(imgres);
 	synth_depths.push_back(dmres);
 
@@ -982,8 +972,7 @@ bool FaceNormalizer::projectPointCloud(cv::Mat& img, cv::Mat& depth, cv::Mat& im
 				}
 			}
 		}
-		std::cout << " finished assigning color - ";
-
+		//std::cout << " z-based assignment done \n ";
 		proj_map.clear();
 
 		// blur to fill gaps in face image, erode and dilate to cut out any "straggler" points and other parts drifting away from the face for lack of depth point cohesion
@@ -1015,16 +1004,9 @@ bool FaceNormalizer::projectPointCloud(cv::Mat& img, cv::Mat& depth, cv::Mat& im
 			if (contours[i].size() > contours[outside_contour_index].size())
 				outside_contour_index = i;
 		}
-		// Find the convex hull object for each contour
-		std::vector<vector<Point> >hull( contours.size() );
-		for( int i = 0; i < contours.size(); i++ )
-		{
-			cv::convexHull( cv::Mat(contours[i]), hull[i], false );
-		}
-		// Draw contours + hull results
+		// Draw contours
 		cv::Mat outside_drawing = cv::Mat::zeros( threshold_output.size(), CV_8UC1 );
 		cv::drawContours( outside_drawing, contours, outside_contour_index, 255, CV_FILLED, 8, vector<Vec4i>(), 0, Point() );
-
 		contours.clear();
 		hierarchy.clear();
 
@@ -1068,7 +1050,7 @@ bool FaceNormalizer::projectPointCloud(cv::Mat& img, cv::Mat& depth, cv::Mat& im
 			}
 		}
 
-		//cv::imshow("alt", img_res);
+		//cv::imshow("original", img_res);
 		//cv::imshow("eroded zwin", src_erode);
 		//cv::imshow("dilated zwin", src_dilate);
 		//cv::imshow("zwin", img_res_zwin);
