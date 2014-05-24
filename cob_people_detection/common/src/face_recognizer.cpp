@@ -905,7 +905,7 @@ unsigned long ipa_PeopleDetector::FaceRecognizer::loadTrainingData(std::vector<c
 			if (dm_path.string().compare(m_data_directory.string()))
 			{
 				cv::Mat xyz_temp, dm_temp;
-				cv::FileStorage fs(dm_path.string(), FileStorage::READ);
+				cv::FileStorage fs(dm_path.string(), cv::FileStorage::READ);
 				fs["depthmap"] >> xyz_temp;
 				face_normalizer_.normalizeFace(temp, xyz_temp, norm_size, dm_temp);
 				face_depthmaps.push_back(dm_temp);

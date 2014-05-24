@@ -10,6 +10,7 @@ def convert_dat(path):
   os.chdir(path)
 
   dir_list=os.listdir(".")
+  print dir_list
   dat_list=list()
   #get all dat files in directory
   for file in dir_list:
@@ -17,38 +18,34 @@ def convert_dat(path):
       dat_list.append(file)
     #training_set_file_stream = open(training_set_list_path,"w")
 
-    #convert dat files ony by one
+    #convert dat files one by one
   filerange=len(dat_list)
   file_ctr=0
   for file in dat_list:
     f = open(file,"r")
-
     file_content = f.read().strip()
     file_content = file_content.replace('\n', ';')
     mat=numpy.matrix(file_content)
+    mat=mat.astype(numpy.float32)
     for(r,c),value in numpy.ndenumerate(mat):
-        if mat[r,c]==-1:
-          mat[r,c]=0
-    mat=mat.astype(float)
-    mat/=1000
-
+      if mat[r,c]==-1:
+        #mat[r,c]=numpy.nan
+        mat[r,c]=0;
+      else:
+        mat[r,c]/=1000
     cv_mat=cv.fromarray(mat)
-
-    o_path=path+"/"+os.path.splitext(file)[0]+".xml"
-
-    cv.Save(o_path,cv_mat,"depthmap")
+    o_path1=path+"/"+os.path.splitext(file)[0]+".xml"
+    cv.Save(o_path1,cv_mat,"depth")
     o_str= "processed file "+str(file_ctr)+ " of "+ str(filerange)
     print o_str
     file_ctr+=1
 
-
-
 if __name__=="__main__":
   #path="/share/goa-tz/people_detection/eval/Kinect3D/"
-  path="/home/goa-tz/Kinect3D/"
+  path="/home/stefan/rgbd_db/set_02"
 
-  folder=sys.argv[1]
-  i_path=path+folder
+  #folder=sys.argv[1]
+  i_path=path#+folder
   print i_path
   #src_dir="/share/goa-tz/people_detection/eval/Kinect3D_tar/"
   #os.chdir(path)

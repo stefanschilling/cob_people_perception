@@ -69,6 +69,8 @@
 #endif
 #include <opencv/ml.h>
 #include <opencv/cv.h>
+#include <opencv/cvaux.h>
+#include <opencv/highgui.h>
 
 namespace ipa_PeopleDetector {
 
