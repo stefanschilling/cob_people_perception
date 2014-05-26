@@ -135,9 +135,9 @@ class scene_publisher
 		this->persp=1;
 		this->shot=0;
 
-		//file="-1";
-		//n_.param("/cob_people_detection/face_recognizer/file",file,file);
-		//std::cout<<"input file: "<<file<<std::endl;
+		file="-1";
+		nh.param("/cob_people_detection/face_recognizer/file",file,file);
+		std::cout<<"input file: "<<file<<std::endl;
 
 		scene_pub_ = nh.advertise<sensor_msgs::PointCloud2>("/camera/depth_registered/points",1);
 		img_pub_ = nh.advertise<sensor_msgs::Image>("/camera/rgb/image_color",1);
@@ -149,15 +149,17 @@ class scene_publisher
 	{
 	}
 
-
 	void process()
 	{
 		pc.clear();
 		path = "/home/stefan/rgbd_db/";
 		std::stringstream xyz_stream,jpg_stream,depth_stream;
 		xyz_stream<<path.c_str()<<std::setw(3)<<std::setfill('0')<<persp<<"_"<<shot<<"_d.xml";
-		jpg_stream<<path.c_str()<<"set_01/"<<std::setw(3)<<std::setfill('0')<<persp<<"_"<<shot<<"_c.bmp";
-		depth_stream<<path.c_str()<<"set_01/"<<std::setw(3)<<std::setfill('0')<<persp<<"_"<<shot<<"_d.xml";
+		//jpg_stream<<path.c_str()<<"set_03/"<<std::setw(3)<<std::setfill('0')<<persp<<"_"<<shot<<"_c.bmp";
+		//depth_stream<<path.c_str()<<"set_03/"<<std::setw(3)<<std::setfill('0')<<persp<<"_"<<shot<<"_d.xml";
+
+		depth_stream<<path<<file.c_str()<<"/"<<std::setw(3)<<std::setfill('0')<<persp<<"_"<<shot<<"_d.xml";
+		jpg_stream<<path<<file.c_str()<<"/"<<std::setw(3)<<std::setfill('0')<<persp<<"_"<<shot<<"_c.bmp";
 
 		std::cout<<xyz_stream.str()<<"\n "<<jpg_stream.str()<<"\n "<<depth_stream.str()<<std::endl;
 
@@ -167,23 +169,29 @@ class scene_publisher
 		//img=cv::imread("/home/stefan/rgbd_db/007_2_c.bmp");
 		img.convertTo(img,CV_8UC3);
 		cv::resize(img,img,cv::Size(640,480));
-		std::cout << "img gelesen... size: " << img.size() << " rows: " << img.rows << " cols: " << img.cols << std::endl;
+		//std::cout << "img read... size: " << img.size() << " rows: " << img.rows << " cols: " << img.cols << std::endl;
 
-		//read xyz or depth xml
-		cv::Mat xyz,dm;
-		cv::FileStorage fs_read(xyz_stream.str().c_str(),cv::FileStorage::READ);
+		//read depth xml
+		cv::Mat dm;
 		cv::FileStorage fs_read2(depth_stream.str().c_str(),cv::FileStorage::READ);
-		//cv::FileStorage fs_read("/home/stefan/rgbd_db/007_2_d.xml",cv::FileStorage::READ);
 		fs_read2["depth"]>> dm;
 		fs_read2.release();
-		fs_read["depth"]>> xyz;
-		fs_read.release();
-		std::cout << "xyz gelesen... size: " << xyz.size() << " rows: " << xyz.rows << " cols: " << xyz.cols << std::endl;
+		std::cout << "depthmap read... size: " << dm.size() << " rows: " << dm.rows << " cols: " << dm.cols << std::endl;
+
+//		cv::Mat xyz;
+//		cv::FileStorage fs_read(xyz_stream.str().c_str(),cv::FileStorage::READ);
+//		fs_read["depth"]>> xyz;
+//		fs_read.release();
+		//std::cout << "xyz read... size: " << xyz.size() << " rows: " << xyz.rows << " cols: " << xyz.cols << std::endl;
 
 		//set parameters
 		pc.width=640;
 		pc.height=480;
+		//cam mat found in scene publisher
 		cv::Mat cam_mat =(cv::Mat_<double>(3,3)<< 524.90160178307269,0.0,320.13543361773458,0.0,525.85226379335393,240.73474482242005,0.0,0.0,1.0);
+		//f_x and f_y do NOT agree with my fov based calculation. I don't know how they were determined. AAU was unable to locate the kinect used for this, so could not help solve the issue.
+		//However, these values are very close to those found for the kinect rgb camera at nicolas.burrus.name/index.php/Research/KinectCalibration
+
 		// compensate for kinect offset
 		int index=0;
 		cv::Vec3f rvec,tvec;
@@ -193,8 +201,10 @@ class scene_publisher
 		rvec=cv::Vec3f(0.0,0.0,0);
 		dist_coeff=cv::Mat::zeros(1,5,CV_32FC1);
 		cv::Mat pc_trans=cv::Mat::zeros(640,480,CV_64FC1);
+
 		//convert depth to xyz
 		pcl::PointXYZRGB pt;
+		int failctr=0;
 		for(int r=0;r<dm.rows;r++)
 		{
 			for(int c=0;c<dm.cols;c++)
@@ -202,6 +212,7 @@ class scene_publisher
 				//pt  << c,r,1.0/525;
 				//pt=cam_mat_inv*pt;
 
+				//estimate of point
 				cv::Point3f pt_3f;
 				pt_3f.x=(c-320);
 				pt_3f.y=(r-240);
@@ -214,15 +225,8 @@ class scene_publisher
 
 				pt_3f=pt_3f*dm.at<float>(r,c);
 				std::vector<cv::Point3f> pt3_vec;
+
 				pt3_vec.push_back(pt_3f);
-				/*
-				pt.x=pt_3f.x;
-				pt.y=pt_3f.y;
-				pt.z=pt_3f.z;
-				uint32_t rgb = (static_cast<uint32_t>(img.at<cv::Vec3b>(r,c)[0]) << 0 |static_cast<uint32_t>(img.at<cv::Vec3b>(r,c)[1]) << 8 | static_cast<uint32_t>(img.at<cv::Vec3b>(r,c)[2]) << 16);
-				pt.rgb = *reinterpret_cast<float*>(&rgb);
-				pc.points.push_back(pt);
-				*/
 				std::vector<cv::Point2f> pt2_vec;
 
 				cv::projectPoints(pt3_vec,rvec,tvec,cam_mat,dist_coeff,pt2_vec);
@@ -230,11 +234,17 @@ class scene_publisher
 				int x_t,y_t;
 				x_t=round(pt2_vec[0].x);
 				y_t=round(pt2_vec[0].y);
-				if(x_t<0 ||x_t>640 ||y_t<0 ||y_t>480) continue;
+				if(x_t<0 ||x_t>640 ||y_t<0 ||y_t>480)
+					{
+					failctr++;
+					continue;
+					}
 				pc_trans.at<float>(y_t,x_t)=dm.at<float>(r,c);
 			}
 		}
-		std::cout << "start iterating to add points..." << std::endl;
+
+		//std::cout << "pc_trans created... points dropped: " << failctr << ", size: " << pc_trans.size() << " rows: " << pc_trans.rows << " cols: " << pc_trans.cols << std::endl;
+		//std::cout << "start iterating to add points..." << std::endl;
 		for(int j =0; j< dm.rows;j++)
 		{
 			for(int i =0; i< dm.cols; i++)
@@ -255,18 +265,22 @@ class scene_publisher
 				pt.x = pt_.x;
 				pt.y = pt_.y;
 				pt.z = pt_.z;
-				//end transform
 
-				pt.x = xyz.at<cv::Vec3f>(j,i)[0];
-				pt.y = xyz.at<cv::Vec3f>(j,i)[1];
-				pt.z = xyz.at<cv::Vec3f>(j,i)[2];
-				if (i<619&&j<469)
-				{
-					//uint32_t rgb = (static_cast<uint32_t>(img.at<cv::Vec3b>(j+10,i+15)[0]) << 0 |static_cast<uint32_t>(img.at<cv::Vec3b>(j+10,i+15)[1]) << 8 | static_cast<uint32_t>(img.at<cv::Vec3b>(j+10,i+15)[2]) << 16);
-					uint32_t rgb = (static_cast<uint32_t>(img.at<cv::Vec3b>(j,i+18)[0]) << 0 |static_cast<uint32_t>(img.at<cv::Vec3b>(j,i+18)[1]) << 8 | static_cast<uint32_t>(img.at<cv::Vec3b>(j,i+18)[2]) << 16);
+				//use precalculated points
+//				pt.x = xyz.at<cv::Vec3f>(j,i)[0];
+//				pt.y = xyz.at<cv::Vec3f>(j,i)[1];
+//				pt.z = xyz.at<cv::Vec3f>(j,i)[2];
 
-					pt.rgb = *reinterpret_cast<float*>(&rgb);
-				}
+				//rgb shift to fit pointcloud
+//				if (i<619&&j<469)
+//				{
+//					//uint32_t rgb = (static_cast<uint32_t>(img.at<cv::Vec3b>(j+10,i+15)[0]) << 0 |static_cast<uint32_t>(img.at<cv::Vec3b>(j+10,i+15)[1]) << 8 | static_cast<uint32_t>(img.at<cv::Vec3b>(j+10,i+15)[2]) << 16);
+//					uint32_t rgb = (static_cast<uint32_t>(img.at<cv::Vec3b>(j,i+18)[0]) << 0 |static_cast<uint32_t>(img.at<cv::Vec3b>(j,i+18)[1]) << 8 | static_cast<uint32_t>(img.at<cv::Vec3b>(j,i+18)[2]) << 16);
+//
+//					pt.rgb = *reinterpret_cast<float*>(&rgb);
+//				}
+
+				//add color to points, not shifted
 				uint32_t rgb = (static_cast<uint32_t>(img.at<cv::Vec3b>(j,i)[0]) << 0 |static_cast<uint32_t>(img.at<cv::Vec3b>(j,i)[1]) << 8 | static_cast<uint32_t>(img.at<cv::Vec3b>(j,i)[2]) << 16);
 				pt.rgb = *reinterpret_cast<float*>(&rgb);
 				pc.points.push_back(pt);
@@ -279,7 +293,7 @@ class scene_publisher
 
 		pcl::toROSMsg(pc,out_pc2);
 
-		std::cout << "done with point cloud: " << pc.size() << std::endl;
+		//std::cout << "done with point cloud: " << pc.size() << std::endl;
 	}
 
 	void publish()
@@ -311,11 +325,11 @@ class scene_publisher
 int main (int argc, char** argv)
 {
 	ros::init (argc, argv, "scene_publisher");
-	int persp_filter=17;
+	int persp_filter=7;
 
 	scene_publisher sp;
 
-	ros::Rate loop_rate(1);
+	ros::Rate loop_rate(2);
 	while (ros::ok())
 	{
 		sp.shot++;
@@ -325,9 +339,9 @@ int main (int argc, char** argv)
 			sp.shot=1;
 			sp.persp++;
 		}
-		if(sp.persp==18) break;
+		if(sp.persp==14) break;
 
-		if(sp.persp<=persp_filter)
+		if(sp.persp==persp_filter)
 		{
 			sp.process();
 			sp.publish();
