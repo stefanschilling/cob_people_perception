@@ -154,8 +154,8 @@ unsigned long HeadDetector::detectRangeFace(cv::Mat& depth_image, std::vector<cv
 	cv::Mat depth_image_8U3;
 	ipa_Utils::ConvertToShowImage(depth_image, depth_image_8U3, 3);
 	if (fillUnassignedDepthValues) interpolateUnassignedPixels(depth_image_8U3);
-	cv::imshow("depth image", depth_image);
-	cv::waitKey(10);
+	//cv::imshow("depth image", depth_image);
+	//cv::waitKey(10);
 	IplImage imgPtr = (IplImage)depth_image_8U3;
 	CvSeq* rangeFaces = cvHaarDetectObjects(&imgPtr, m_range_cascade, m_storage, m_depth_increase_search_scale, m_depth_drop_groups, CV_HAAR_DO_CANNY_PRUNING, cvSize(m_depth_min_search_scale_x, m_depth_min_search_scale_y));
 

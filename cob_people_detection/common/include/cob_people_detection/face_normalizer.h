@@ -178,10 +178,10 @@ class FaceNormalizer{
 
     //TODO documentation
     /// Function to synthetisize artificial poses from one image
-    bool synthFace(cv::Mat &RGB,cv::Mat& XYZ, cv::Size& norm_size,std::vector<cv::Mat>& synth_images,std::vector<cv::Mat>& synth_depths, std::string& training_path, std::string& label);
+    bool synthFace(cv::Mat &RGB,cv::Mat& XYZ, cv::Size& norm_size, std::string training_path, int& img_count);
     bool read_scene_from_training(cv::Mat& RGB,cv::Mat& XYZ,std::string path, int image_id);
     bool frontFaceImage(cv::Mat& img,cv::Mat& depth,std::vector<float>& scores);
-    bool synth_head_poses(cv::Mat& img,cv::Mat& depth,std::vector<cv::Mat>& synth_images, std::vector<cv::Mat>& synth_depths, std::string& training_path, std::string& label);
+    bool synth_head_poses(cv::Mat& img,cv::Mat& depth, std::string training_path, int& img_count,cv::Size& norm_size);
     bool synth_head_poses_relative(cv::Mat& img,cv::Mat& depth,std::vector<cv::Mat>& synth_images);
     bool eliminate_background(cv::Mat& RGB,cv::Mat& XYZ,float background_thresh);
     bool isolateFace(cv::Mat& RGB,cv::Mat& XYZ);

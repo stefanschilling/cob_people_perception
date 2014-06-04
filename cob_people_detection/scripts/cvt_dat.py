@@ -27,7 +27,6 @@ def convert_dat(path):
     filerange=len(dat_list)
     file_ctr=0
     for file in dat_list:
-      
       f = open(file,"r")
       file_content = f.read().strip()
       file_content = file_content.replace('\n', ';')
