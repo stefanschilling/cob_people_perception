@@ -139,11 +139,11 @@ bool FaceNormalizer::synthFace(cv::Mat &RGB,cv::Mat& XYZ, cv::Size& norm_size, s
 		//isolateFace(GRAY,XYZ);
 
 		//reduce XYZ mat to same, even size as img (after normalize_radiometry)
-		if( GRAY.rows&2!=0 )
+		if( GRAY.rows&(2) != 0 )
 		{
 			XYZ=XYZ(cv::Rect(0,0,XYZ.cols,XYZ.rows-1));
 		}
-		if( GRAY.cols&2!=0 )
+		if( GRAY.cols&(2) != 0 )
 		{
 			XYZ=XYZ(cv::Rect(0,0,XYZ.cols-1,XYZ.rows));
 		}
@@ -157,40 +157,6 @@ bool FaceNormalizer::synthFace(cv::Mat &RGB,cv::Mat& XYZ, cv::Size& norm_size, s
 		//std::cout << "synth succesful, new img count: " << img_count << "\n";
 		valid = true;
 	}
-
-//	// process remaining normalization steps with all synthetic images
-//	for(int n=0;n<synth_images.size();n++)
-//	{
-//		if(config_.cvt2gray)
-//		{
-//			//std::cout << "config gray";
-//			if(synth_images[n].channels()==3)cv::cvtColor(synth_images[n],synth_images[n],CV_RGB2GRAY);
-//		}
-//
-//		if(config_.eq_ill)
-//		{
-//			//std::cout << "config eqill";
-//			// radiometric normalization
-//			if(!normalize_radiometry(synth_images[n])) valid=false;
-//			if(debug_)dump_img(synth_images[n],"radiometry");
-//		}
-//
-//		if(debug_ && valid)dump_img(synth_images[n],"geometry");
-//
-//		if(config_.resize)
-//		{
-//			//std::cout << "config size";
-//			//resizing
-//			//normalize_img_type(synth_images[n],synth_images[n]);
-//			// TODO ^ this should be a simple conversion to 64bit floating point format, but the result is a binary (black/white) image??
-//			cv::resize(synth_images[n],synth_images[n],norm_size_,0,0);
-//		}
-//		//cv::imshow("result", synth_images[n]);
-//		//cv::waitKey();
-//
-//		if(debug_)dump_img(synth_images[n],"size");
-//	}
-//	epoch_ctr_++;
 	return valid;
 }
 
@@ -218,6 +184,7 @@ bool FaceNormalizer::normalizeFace( cv::Mat& img,cv::Mat& depth,cv::Size& norm_s
   //geometric normalization
   if(config_.align)
   {
+	std::cout << "yo"<<std::endl;
     if(!normalize_geometry_depth(img,depth)) valid=false;
   }
 
@@ -441,12 +408,10 @@ bool FaceNormalizer::synth_head_poses(cv::Mat& img,cv::Mat& depth, std::string t
 	std::string faceCascadePath = "/home/stefan/git/cob_people_perception/cob_people_detection/common/files/haarcascades/haarcascade_frontalface_alt2.xml";
 	CvHaarClassifierCascade* m_face_cascade = (CvHaarClassifierCascade*)cvLoad(faceCascadePath.c_str(), 0, 0, 0 );	//"ConfigurationFiles/haarcascades/haarcascade_frontalface_alt2.xml", 0, 0, 0 );
 	CvMemStorage* m_storage = cvCreateMemStorage(0);
-
 	IplImage imgPtr = (IplImage)img;
 
+	//add source img if face is found in it
 	CvSeq* faces = cvHaarDetectObjects(&imgPtr,	m_face_cascade,	m_storage, faces_increase_search_scale, faces_drop_groups, CV_HAAR_DO_CANNY_PRUNING, cv::Size(faces_min_search_scale_x, faces_min_search_scale_y));
-	//std::cout << "Face in synth image: " << faces->total << std::endl;
-	//add source img
 	if (faces->total ==1)
 	{
 		cv::Rect* face = (cv::Rect*)cvGetSeqElem(faces, 0);
@@ -463,10 +428,10 @@ bool FaceNormalizer::synth_head_poses(cv::Mat& img,cv::Mat& depth, std::string t
 			std::ostringstream synth_id_str;
 			synth_id_str << img_count;
 			std::string synth_id(synth_id_str.str());
-			std::string synth_image_path = training_path + "synth_img/" + synth_id + ".bmp";
-			std::string synth_depth_path = training_path + "synth_depth/" + synth_id + ".xml";
-			std::cout << "imwrite to: " << synth_image_path << std::endl;
-			std::cout << "dmwrite to: " << synth_depth_path << std::endl;
+			std::string synth_image_path = training_path + "synth_img_test/" + synth_id + ".bmp";
+			std::string synth_depth_path = training_path + "synth_depth_test/" + synth_id + ".xml";
+			//std::cout << "imwrite to: " << synth_image_path << std::endl;
+			//std::cout << "dmwrite to: " << synth_depth_path << std::endl;
 			cv::imwrite(synth_image_path, synth_img);
 			cv::FileStorage fs(synth_depth_path, FileStorage::WRITE);
 			fs << "depthmap" << synth_dm;
@@ -548,7 +513,6 @@ bool FaceNormalizer::synth_head_poses(cv::Mat& img,cv::Mat& depth, std::string t
 	Eigen::Affine3f T_norm, T_rot;
 	//pcl::getTransformationFromTwoUnitVectorsAndOrigin(y_new,z_new,origin,T_norm);
 	T_norm= pcl::getTransformation(float(-nose[0]), float(-nose[1]), float(-nose[2]), 0.0, 0.0, 0.0);
-
 	// viewing offset of normalized perspective
 	double view_offset=nose[2];
 	view_offset = nose[2];
@@ -573,8 +537,8 @@ bool FaceNormalizer::synth_head_poses(cv::Mat& img,cv::Mat& depth, std::string t
 //  }
 
 	//number of poses
-	int N=96;
-	float rot_step = 0.02;
+	int N=24;
+	float rot_step = 0.04;
 	std::cout<<"Synthetic POSES"<<std::endl;
 
 	for(int i=0;i<N;i++)
@@ -617,65 +581,47 @@ bool FaceNormalizer::synth_head_poses(cv::Mat& img,cv::Mat& depth, std::string t
 			ptr++;
 		}
 
-		//transform feature coordinates separately to determine roi from
-		nose<<f_det_xyz_.nose.x,f_det_xyz_.nose.y,f_det_xyz_.nose.z;
-		lefteye<<f_det_xyz_.lefteye.x,f_det_xyz_.lefteye.y,f_det_xyz_.lefteye.z;
-		righteye<<f_det_xyz_.righteye.x,f_det_xyz_.righteye.y,f_det_xyz_.righteye.z;
-
-		lefteye=translation*T_rot*T_norm*lefteye;
-		righteye=translation*T_rot*T_norm*righteye;
-		nose=translation*T_rot*T_norm*nose;
-		cv::Point2f lefteye_uv,righteye_uv,nose_uv;
-		cv::Point3f lefteye_xyz,righteye_xyz,nose_xyz;
-
-		lefteye_xyz = cv::Point3f(lefteye[0],lefteye[1],lefteye[2]);
-		righteye_xyz = cv::Point3f(righteye[0],righteye[1],righteye[2]);
-		nose_xyz = cv::Point3f(nose[0],nose[1],nose[2]);
-
-		projectPoint(lefteye_xyz,lefteye_uv);
-		//std::cout << " projected left eye ";
-		projectPoint(righteye_xyz,righteye_uv);
-		//std::cout << " projected right eye ";
-		projectPoint(nose_xyz,nose_uv);
-		//std::cout << " projected nose /n ";
-
-		projectPointCloud(img,workmat,imgres,dmres);
+		projectPointCloudSynth(img,workmat,imgres,dmres);
 		//TODO:
 		//confirm if created image is recognized as face? - DONE
-
-		IplImage imgPtr = (IplImage)imgres;
-
-		CvSeq* faces = cvHaarDetectObjects(&imgPtr,	m_face_cascade,	m_storage, faces_increase_search_scale, faces_drop_groups, CV_HAAR_DO_CANNY_PRUNING, cv::Size(faces_min_search_scale_x, faces_min_search_scale_y));
-		//std::cout << "Face in synth image: " << faces->total << std::endl;
-		if (faces->total ==1)
+		//decide if we want to detect actual face area from result picture or simply use a roi determined by geometrical position of eyes and nose after transform
+		bool detect_face =true;
+		if (detect_face)
 		{
-			cv::Rect* face = (cv::Rect*)cvGetSeqElem(faces, 0);
-			//exclude faces that are too small for the head bounding box
-			if (face->width > 0.4*img.cols && face->height > 0.4*img.rows)
+			IplImage imgPtr = (IplImage)imgres;
+
+			CvSeq* faces = cvHaarDetectObjects(&imgPtr,	m_face_cascade,	m_storage, faces_increase_search_scale, faces_drop_groups, CV_HAAR_DO_CANNY_PRUNING, cv::Size(faces_min_search_scale_x, faces_min_search_scale_y));
+			//std::cout << "Face in synth image: " << faces->total << std::endl;
+			if (faces->total ==1)
 			{
-				cv::Mat synth_img=imgres(cv::Rect(face->x,face->y, face->width,face->height));
-				cv::Mat synth_dm = dmres(cv::Rect(face->x,face->y, face->width,face->height));
-				//TODO
-				//test resizing vs roi around nose used in other functions of face_normalizer
-				cv::resize(synth_img,synth_img,norm_size,0,0);
-				cv::resize(synth_dm,synth_dm,norm_size,0,0);
-				//save resulting image and depth mat
-				std::ostringstream synth_id_str;
-				synth_id_str << img_count+img_added;
-				std::string synth_id(synth_id_str.str());
-				std::string synth_image_path = training_path + "synth_img/" + synth_id + ".bmp";
-				std::string synth_depth_path = training_path + "synth_depth/" + synth_id + ".xml";
-				//std::cout << "imwrite to: " << synth_image_path << std::endl;
-				//std::cout << "dmwrite to: " << synth_depth_path << std::endl;
-				cv::imwrite(synth_image_path, synth_img);
-				cv::FileStorage fs(synth_depth_path, FileStorage::WRITE);
-				fs << "depthmap" << synth_dm;
-				fs.release();
-				img_added++;
-				//std::cout << "cut out face size: " << face_img.size() << std::endl;
-				//std::cout << face->height << "," << face->width<<","<<face->x<<","<<face->y <<std::endl;
-				//cv::imshow("Face Detection",face_img);
-				//cv::waitKey();
+				cv::Rect* face = (cv::Rect*)cvGetSeqElem(faces, 0);
+				//exclude faces that are too small for the head bounding box
+				if (face->width > 0.4*img.cols && face->height > 0.4*img.rows)
+				{
+					cv::Mat synth_img=imgres(cv::Rect(face->x,face->y, face->width,face->height));
+					cv::Mat synth_dm = dmres(cv::Rect(face->x,face->y, face->width,face->height));
+					//TODO
+					//test resizing vs roi around nose used in other functions of face_normalizer
+					cv::resize(synth_img,synth_img,norm_size,0,0);
+					cv::resize(synth_dm,synth_dm,norm_size,0,0);
+					//save resulting image and depth mat
+					std::ostringstream synth_id_str;
+					synth_id_str << img_count+img_added;
+					std::string synth_id(synth_id_str.str());
+					std::string synth_image_path = training_path + "synth_img_test/" + synth_id + ".bmp";
+					std::string synth_depth_path = training_path + "synth_depth_test/" + synth_id + ".xml";
+					//std::cout << "imwrite to: " << synth_image_path << std::endl;
+					//std::cout << "dmwrite to: " << synth_depth_path << std::endl;
+					cv::imwrite(synth_image_path, synth_img);
+					cv::FileStorage fs(synth_depth_path, FileStorage::WRITE);
+					fs << "depthmap" << synth_dm;
+					fs.release();
+					img_added++;
+					//std::cout << "cut out face size: " << face_img.size() << std::endl;
+					//std::cout << face->height << "," << face->width<<","<<face->x<<","<<face->y <<std::endl;
+					//cv::imshow("Face Detection",face_img);
+					//cv::waitKey();
+				}
 			}
 		}
 	}
@@ -703,8 +649,159 @@ bool FaceNormalizer::synth_head_poses(cv::Mat& img,cv::Mat& depth, std::string t
 return true;
 }
 
+bool FaceNormalizer::projectPointCloud(cv::Mat& img, cv::Mat& depth, cv::Mat& img_res, cv::Mat& depth_res)
+{
+	int channels=img.channels();
+
+	cv::Mat pc_xyz,pc_rgb;
+	depth.copyTo(pc_xyz);
+	img.copyTo(pc_rgb);
+
+	//make point_list
+	if(pc_xyz.rows>1 && pc_xyz.cols >1)
+	{
+		pc_xyz=pc_xyz.reshape(3,1);
+	}
+
+   //project 3d points to virtual camera
+   //TODO temporary triy
+   //cv::Mat pc_proj(pc_xyz.rows*pc_xyz.cols,1,CV_32FC2);
+   cv::Mat pc_proj(pc_xyz.cols,1,CV_32FC2);
+
+   cv::Vec3f rot=cv::Vec3f(0.0,0.0,0.0);
+   cv::Vec3f trans=cv::Vec3f(0.0,0.0,0.0);
+   cv::Size sensor_size=cv::Size(640,480);
+   cv::projectPoints(pc_xyz,rot,trans,cam_mat_,dist_coeffs_,pc_proj);
+
+   cv::Vec3f* pc_ptr=pc_xyz.ptr<cv::Vec3f>(0,0);
+   cv::Vec2f* pc_proj_ptr=pc_proj.ptr<cv::Vec2f>(0,0);
+   int ty,tx;
+
+   if(channels==3)
+   {
+    cv::add(img_res,0,img_res);
+    cv::add(depth_res,0,depth_res);
+   // assign color values to calculated image coordinates
+   cv::Vec3b* pc_rgb_ptr=pc_rgb.ptr<cv::Vec3b>(0,0);
+
+
+   cv::Mat occ_grid=cv::Mat::ones(sensor_size,CV_32FC3);
+   cv::Mat img_cum=cv::Mat::zeros(sensor_size,CV_32FC3);
+   cv::Vec3f occ_inc=cv::Vec3f(1,1,1);
+   for(int i=0;i<pc_proj.rows;++i)
+     {
+       cv::Vec2f txty=*pc_proj_ptr;
+       tx=(int)round(txty[0]);
+       ty=(int)round(txty[1]);
+
+
+       if (ty>1 && tx>1 && ty<sensor_size.height-1 && tx<sensor_size.width-1 && !isnan(ty) && !isnan(tx) )
+       {
+            img_cum.at<cv::Vec3b>(ty,tx)+=(*pc_rgb_ptr);
+            img_cum.at<cv::Vec3f>(ty+1,tx)+=(*pc_rgb_ptr);
+            img_cum.at<cv::Vec3f>(ty-1,tx)+=(*pc_rgb_ptr);
+            img_cum.at<cv::Vec3f>(ty,tx-1)+=(*pc_rgb_ptr);
+            img_cum.at<cv::Vec3f>(ty,tx+1)+=(*pc_rgb_ptr);
+
+            occ_grid.at<cv::Vec3f>(ty,tx)+=  occ_inc;
+            occ_grid.at<cv::Vec3f>(ty+1,tx)+=occ_inc;
+            occ_grid.at<cv::Vec3f>(ty-1,tx)+=occ_inc;
+            occ_grid.at<cv::Vec3f>(ty,tx+1)+=occ_inc;
+            occ_grid.at<cv::Vec3f>(ty,tx-1)+=occ_inc;
+
+            depth_res.at<cv::Vec3f>(ty,tx)=((*pc_ptr));
+       }
+       pc_rgb_ptr++;
+       pc_proj_ptr++;
+       pc_ptr++;
+      }
+   img_cum=img_cum / occ_grid;
+   img_cum.convertTo(img_res,CV_8UC3);
+   }
+
+
+   if(channels==1)
+   {
+   // assign color values to calculated image coordinates
+    cv::add(img_res,0,img_res);
+    cv::add(depth_res,0,depth_res);
+   unsigned char* pc_rgb_ptr=pc_rgb.ptr<unsigned char>(0,0);
+
+   cv::Mat occ_grid=cv::Mat::ones(sensor_size,CV_32FC1);
+   cv::Mat img_cum=cv::Mat::zeros(sensor_size,CV_32FC1);
+   cv::Mat occ_grid2=cv::Mat::ones(sensor_size,CV_32FC1);
+   for(int i=0;i<pc_proj.rows;++i)
+     {
+       cv::Vec2f txty=*pc_proj_ptr;
+       tx=(int)round(txty[0]);
+       ty=(int)round(txty[1]);
+
+
+       if (ty>1 && tx>1 && ty<sensor_size.height-1 && tx<sensor_size.width-1 && !isnan(ty) && !isnan(tx) )
+       {
+            //if((depth_map.at<cv::Vec3f>(ty,tx)[2]==0) || (depth_map.at<cv::Vec3f>(ty,tx)[2]>(*pc_ptr)[2]))
+            //{
+            img_res.at<unsigned char>(ty,tx)=(*pc_rgb_ptr);
+            occ_grid2.at<float>(ty,tx)=0.0;
+            img_cum.at<float>(ty+1,tx)+=(*pc_rgb_ptr);
+            img_cum.at<float>(ty-1,tx)+=(*pc_rgb_ptr);
+            img_cum.at<float>(ty,tx-1)+=(*pc_rgb_ptr);
+            img_cum.at<float>(ty,tx+1)+=(*pc_rgb_ptr);
+            img_cum.at<float>(ty+1,tx+1)+=(*pc_rgb_ptr);
+            img_cum.at<float>(ty-1,tx-1)+=(*pc_rgb_ptr);
+            img_cum.at<float>(ty-1,tx+1)+=(*pc_rgb_ptr);
+            img_cum.at<float>(ty+1,tx-1)+=(*pc_rgb_ptr);
+
+            occ_grid.at<float>(ty,tx)+=  1;
+            occ_grid.at<float>(ty+1,tx)+=1;
+            occ_grid.at<float>(ty-1,tx)+=1;
+            occ_grid.at<float>(ty,tx+1)+=1;
+            occ_grid.at<float>(ty,tx-1)+=1;
+            occ_grid.at<float>(ty+1,tx+1)+=1;
+            occ_grid.at<float>(ty-1,tx-1)+=1;
+            occ_grid.at<float>(ty-1,tx+1)+=1;
+            occ_grid.at<float>(ty+1,tx-1)+=1;
+
+            depth_res.at<cv::Vec3f>(ty,tx)=((*pc_ptr));
+       }
+       pc_rgb_ptr++;
+       pc_proj_ptr++;
+       pc_ptr++;
+      }
+
+   occ_grid=occ_grid;
+   img_cum=img_cum / (occ_grid.mul(occ_grid2)-1);
+   img_cum.convertTo(img_cum,CV_8UC1);
+   cv::add(img_res,img_cum,img_res);
+   }
+
+
+
+//   // refinement
+//
+//   //unsigned char* img_res_ptr=img_res.ptr<unsigned char>(0,0);
+//   cv::Mat img_res2=cv::Mat::zeros(img_res.rows,img_res.cols,img_res.type());
+//   for(int i=1;i<img_res.total();i++)
+//   {
+//     if(img_res.at<unsigned char>(i)==0 && img_res.at<unsigned char>(i-1)!=0)
+//     {
+//       //calc position
+//       cv::Vec2f pos= pc_proj.at<cv::Vec2f>(i-1);
+//       std::cout<<"POSITION"<<pos<<std::endl;
+//
+//       unsigned char val=pc_rgb.at<unsigned char>(round(pos[0]),round(pos[1]+1));
+//       img_res2.at<unsigned char>(i)=val;
+//     }
+//   }
+//
+//   cv::imshow("IMG_RES",img_res2);
+//   cv::waitKey(0);
+//
+   return true;
+}
 // construct path to depth and color image data, read/load xml and bmp.
-bool FaceNormalizer::projectPointCloud(cv::Mat& img, cv::Mat& depth, cv::Mat& img_res_fltr, cv::Mat& depth_res)
+
+bool FaceNormalizer::projectPointCloudSynth(cv::Mat& img, cv::Mat& depth, cv::Mat& img_res_fltr, cv::Mat& depth_res)
 {
 	int channels=img.channels();
 
@@ -784,82 +881,94 @@ bool FaceNormalizer::projectPointCloud(cv::Mat& img, cv::Mat& depth, cv::Mat& im
 		//std::cout << " z-based assignment done \n ";
 		proj_map.clear();
 
-		// blur to fill gaps in face image, erode and dilate to cut out any "straggler" points and other parts drifting away from the face for lack of depth point cohesion
-		//cv::Mat src_copy = img_res_zwin.clone();
-		//cv::Mat src_erode, src_dilate;
-		int erosion_size = 2;
-		cv::Mat contour_mat=cv::Mat::zeros(640,480,CV_8UC1);
-		cv::Mat element = cv::getStructuringElement( MORPH_RECT, Size( 2*erosion_size + 1, 2*erosion_size+1 ));
-		cv::GaussianBlur(img_res_zwin,contour_mat, cv::Size(3,3),0,0);
-		cv::erode(contour_mat,contour_mat,element);
-		cv::erode(contour_mat,contour_mat,element);
-		cv::dilate(contour_mat, contour_mat, element);
-
-		// Outer contour of dilated image
-		int thresh = 5;
-		int outside_contour_index=0;
-		RNG rng(12345);
-		//src_copy = img_res_zwin.clone();
-		cv::Mat threshold_output;
-		std::vector<vector<Point> > contours;
-		std::vector<Vec4i> hierarchy;
-
-		// Detect edges using Threshold
-		cv::threshold( contour_mat, threshold_output, thresh, 255, THRESH_BINARY );
-
-		// Find contours, find outside contour (assuming it has most points)
-		cv::findContours( threshold_output, contours, hierarchy, CV_RETR_TREE, CV_CHAIN_APPROX_NONE, Point(0, 0) );
-		for( int i = 0; i< contours.size(); i++ )
-		{
-			if (contours[i].size() > contours[outside_contour_index].size())
-				outside_contour_index = i;
-		}
-
-		// Draw contours
-		cv::Mat outside_drawing = cv::Mat::zeros( threshold_output.size(), CV_8UC1 );
-		cv::drawContours( outside_drawing, contours, outside_contour_index, 255, CV_FILLED, 8, vector<Vec4i>(), 0, Point() );
-		contours.clear();
-		hierarchy.clear();
-
-		// apply smoothing filter on points inside of contour, remove straggler points from color and depth matrix
 		img_res_fltr = img_res_zwin.clone();
 		depth_res = depth_res_zwin.clone();
-
-		std::pair<int,int> kernel_array[8] = {std::make_pair(1,0), std::make_pair(1,1), std::make_pair(0,1), std::make_pair(-1,1), std::make_pair(-1,0), std::make_pair(-1,-1), std::make_pair(0,-1), std::make_pair(1,-1) };
-		//std::cout << " filtering - ";
-
-		for (int i = 50; i<img_res_fltr.cols-50; i++)
-		{
-			for (int j = 50; j<img_res_fltr.rows-50; j++)
+		bool filter = true;
+		if (filter)
 			{
-				//TODO:
-				//better gap filler?
-				//idea: contour based filler, working around edge of contour to fill evenly from all sides?
-				if (outside_drawing.at<uchar>(i,j) > 0 && img_res_fltr.at<uchar>(i,j) == 0)
+			// fill in gaps for points inside of head contour, remove straggler points from color and depth matrix
+
+			// blur to fill gaps in face image, erode and dilate to cut out any "straggler" points
+			// and other parts drifting away from the face for lack of depth point cohesion
+			int erosion_size = 2;
+			cv::Mat contour_mat=cv::Mat::zeros(640,480,CV_8UC1);
+			cv::Mat element = cv::getStructuringElement( MORPH_RECT, Size( 2*erosion_size + 1, 2*erosion_size+1 ));
+			cv::GaussianBlur(img_res_zwin,contour_mat, cv::Size(3,3),0,0);
+			cv::erode(contour_mat,contour_mat,element);
+			cv::erode(contour_mat,contour_mat,element);
+			cv::dilate(contour_mat, contour_mat, element);
+
+			// Outer contour of dilated image
+			int thresh = 5;
+			int outside_contour_index=0;
+			RNG rng(12345);
+			cv::Mat threshold_output;
+			std::vector<vector<Point> > contours;
+			std::vector<Vec4i> hierarchy;
+
+			// Detect edges using Threshold
+			cv::threshold( contour_mat, threshold_output, thresh, 255, THRESH_BINARY );
+
+			// Find contours, find outside contour (assuming it has most points)
+			cv::findContours( threshold_output, contours, hierarchy, CV_RETR_TREE, CV_CHAIN_APPROX_NONE, Point(0, 0) );
+			for( int i = 0; i< contours.size(); i++ )
+			{
+				if (contours[i].size() > contours[outside_contour_index].size())
+					outside_contour_index = i;
+			}
+
+			// Draw contours
+			cv::Mat outside_drawing = cv::Mat::zeros( threshold_output.size(), CV_8UC1 );
+			cv::drawContours( outside_drawing, contours, outside_contour_index, 255, CV_FILLED, 8, vector<Vec4i>(), 0, Point() );
+			contours.clear();
+			hierarchy.clear();
+
+			//set up kernel for gap filling. 3x3 without center pixel (since operation is only applied to empty fields)
+			std::pair<int,int> kernel_array[8] = {std::make_pair(1,0), std::make_pair(1,1), std::make_pair(0,1), std::make_pair(-1,1), std::make_pair(-1,0), std::make_pair(-1,-1), std::make_pair(0,-1), std::make_pair(1,-1) };
+
+			//fill gaps in head image contour
+			//leave out some rows and columns, since the head area is (about) centered
+			for (int i = 50; i<img_res_fltr.cols-50; i++)
+			{
+				for (int j = 50; j<img_res_fltr.rows-50; j++)
 				{
-					int res_color_divisor=0;
-					int res_color=0;
-					for (int k = 0; k < 8; k++)
+					//idea: contour based filler instead,
+					//working around edge of contour to fill evenly from all sides?
+					if (outside_drawing.at<uchar>(i,j) > 0 && img_res_fltr.at<uchar>(i,j) == 0)
 					{
-						if (img_res_fltr.at<uchar>(i+kernel_array[k].first,j+kernel_array[k].second) !=0)
+						int res_color_divisor=0;
+						int res_color=0;
+						cv::Vec3f res_depth;
+						res_depth[0]=res_depth[1]=res_depth[2]=0;
+						for (int k = 0; k < 8; k++)
 						{
-							res_color += int(img_res_fltr.at<uchar>(i+kernel_array[k].first,j+kernel_array[k].second));
-							res_color_divisor++;
+							if (img_res_fltr.at<uchar>(i+kernel_array[k].first,j+kernel_array[k].second) !=0)
+							{
+								//res_depth += depth_res.at<cv::Vec3f>(i+kernel_array[k].first,j+kernel_array[k].second);
+								res_color += int(img_res_fltr.at<uchar>(i+kernel_array[k].first,j+kernel_array[k].second));
+								res_color_divisor++;
+							}
+						}
+						if (res_color_divisor > 0)
+						{
+							img_res_fltr.at<uchar>(i,j) = res_color / res_color_divisor;
+							//add point coordinates to depth with same procedure
+							//depth_res.at<cv::Vec3f>(i,j)[0] = res_depth[0]/res_color_divisor;
+							//depth_res.at<cv::Vec3f>(i,j)[1] = res_depth[1]/res_color_divisor;
+							//depth_res.at<cv::Vec3f>(i,j)[2] = res_depth[2]/res_color_divisor;
 						}
 					}
-					if (res_color_divisor > 0)
+					if (outside_drawing.at<uchar>(i,j) == 0)
 					{
-						img_res_fltr.at<uchar>(i,j) = res_color / res_color_divisor;
+						img_res_fltr.at<uchar>(i,j) = 255;
+						//TODO get .NaN without causing /0 warning?
+						depth_res.at<cv::Vec3f>(i,j) = cv::Vec3f(0.0/0,0.0/0,0.0);
 					}
-				}
-				if (outside_drawing.at<uchar>(i,j) == 0)
-				{
-					img_res_fltr.at<uchar>(i,j) = 255;
-					//TODO get .NaN without causing obvious /0 warning?
-					depth_res.at<cv::Vec3f>(i,j) = cv::Vec3f(0.0/0,0.0/0,0.0);
 				}
 			}
 		}
+//		cv::GaussianBlur(img_res_fltr,img_res_fltr, cv::Size(3,3),0,0);
+//		cv::GaussianBlur(img_res_fltr,img_res_fltr, cv::Size(3,3),0,0);
 
 		//cv::imshow("original", img);
 		//cv::imshow("eroded zwin", src_erode);
@@ -1261,19 +1370,19 @@ bool FaceNormalizer::features_from_color(cv::Mat& img_color)
 {
   if(!detect_feature(img_color,f_det_img_.nose,FACE::NOSE))
   {
-    std::cout<<"[FaceNormalizer] detected no nose"<<std::endl;
+    //std::cout<<"[FaceNormalizer] detected no nose"<<std::endl;
     f_det_img_.nose.x=round(img_color.cols*0.5);
     f_det_img_.nose.y=round(img_color.rows*0.5);
     return false;
   }
   if(!detect_feature(img_color,f_det_img_.lefteye,FACE::LEFTEYE))
   {
-    std::cout<<"[FaceNormalizer] detected no eye_l"<<std::endl;
+    //std::cout<<"[FaceNormalizer] detected no eye_l"<<std::endl;
      return false;
   }
   if(!detect_feature(img_color,f_det_img_.righteye,FACE::RIGHTEYE))
   {
-    std::cout<<"[FaceNormalizer] detected no eye_r"<<std::endl;
+    //std::cout<<"[FaceNormalizer] detected no eye_r"<<std::endl;
      return false;
   }
 
@@ -1539,4 +1648,53 @@ bool FaceNormalizer::normalize_img_type(cv::Mat& in,cv::Mat& out)
 {
   in.convertTo(out,CV_64FC1);
   return true;
+}
+
+bool FaceNormalizer::orientations(cv::Mat& img, cv::Mat& xyz)
+{
+	// normalize
+	if( img.rows&2!=0 )
+	{
+		xyz=xyz(cv::Rect(0,0,xyz.cols,xyz.rows-1));
+	}
+	if( img.cols&2!=0 )
+	{
+		xyz=xyz(cv::Rect(0,0,xyz.cols-1,xyz.rows));
+	}
+	normalize_radiometry(img);
+
+	// detect features
+	if(!features_from_color(img))
+	{
+		//std::cout <<"features missing in color"<<std::endl;
+		return false;
+	}
+	if(!features_from_depth(xyz))
+	{
+		//std::cout <<"features missing in xyz"<<std::endl;
+		return false;
+	}
+
+
+	Eigen::Vector3d lefteye,nose,righteye,eye_middle,vec1,vec2,vec3;
+
+	nose<<f_det_xyz_.nose.x,f_det_xyz_.nose.y,f_det_xyz_.nose.z;
+	lefteye<<f_det_xyz_.lefteye.x,f_det_xyz_.lefteye.y,f_det_xyz_.lefteye.z;
+	righteye<<f_det_xyz_.righteye.x,f_det_xyz_.righteye.y,f_det_xyz_.righteye.z;
+	eye_middle=lefteye+((righteye-lefteye)*0.5);
+
+	vec1 = 100*nose - 100*lefteye;
+	vec1.normalize();
+	vec2 = 100*nose - 100*righteye;
+	vec2.normalize();
+	vec3 = vec1.cross(vec2);
+	//std::cout << "orientation vector x: " << vec3[0] << ", y: " << vec3[1] << ", z: " << vec3[2];
+	vec3=10*vec3;
+	//std::cout << "10*orientation vector x: " << vec3[0] << ", y: " << vec3[1] << ", z: " << vec3[2];
+	vec3.normalize();
+	//std::cout << "normalized orientation vector x: " << vec3[0] << ", y: " << vec3[1] << ", z: " << vec3[2];
+
+	std::cout << std::endl;
+	return true;
+
 }

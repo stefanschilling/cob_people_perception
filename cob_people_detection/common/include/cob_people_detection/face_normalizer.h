@@ -188,6 +188,11 @@ class FaceNormalizer{
     bool interpolate_head(cv::Mat& RGB,cv::Mat& XYZ);
     bool recordFace(cv::Mat&RGB,cv::Mat& XYZ);
 
+    /// Detects facial features in given matrix, calculates and prints orientation of head
+    /// @param[in,in] img Color image, xyz Carthesian coordinates in mm
+    bool orientations(cv::Mat& img, cv::Mat& xyz);
+
+
 
 
 	/// The function saves scene, consisting of color image and corresponding point cloud to given path.
@@ -257,6 +262,16 @@ class FaceNormalizer{
     /// @return Return true/false whether projection was successful.
     bool projectPointCloud(cv::Mat& RGB, cv::Mat& XYZ, cv::Mat& img_res, cv::Mat& depth_res);
 
+    /// The function projects RGB and XYZ information of given image and point cloud to image plane.
+    /// And filters the resulting image
+    /// @brief Function projects point cloud on image plane.
+    /// @param[in] RGB Color image.
+    /// @param[in] XYZ Input point cloud.
+    /// @param[out] img_res Resulting projected image.
+    /// @param[out] depth_res Resulting projected depth image.
+    /// @return Return true/false whether projection was successful.
+    bool projectPointCloudSynth(cv::Mat& RGB, cv::Mat& XYZ, cv::Mat& img_res, cv::Mat& depth_res);
+
     /// The function projects  XYZ information of point to image plane.
     /// @brief Function projects point to image plane.
     /// @param[in] xyz Input 3D point.
@@ -323,7 +338,6 @@ class FaceNormalizer{
     /// @brief Function to save image under given path.
     /// @param[in,out] img Color image which is saved.
     void dump_img(cv::Mat& data,std::string name);
-
 
   bool initialized_;      ///< Flag indicating if face normalizer is already initialized
   int epoch_ctr_;        ///<  Counter for input frames
