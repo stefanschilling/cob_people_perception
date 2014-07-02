@@ -34,7 +34,6 @@ def convert_dat(path):
       mat=mat.astype(numpy.float32)
       for(r,c),value in numpy.ndenumerate(mat):
         if mat[r,c]==-1:
-          #mat[r,c]=numpy.nan
           mat[r,c]=0;
         else:
           mat[r,c]/=1000
@@ -46,6 +45,7 @@ def convert_dat(path):
       file_ctr+=1
     folder_ctr+=1
     o_str = "processed folder " + str(folder_ctr) + " of " + str(len(dir_list))
+    print o_str
 
 if __name__=="__main__":
   #path="/share/goa-tz/people_detection/eval/Kinect3D/"

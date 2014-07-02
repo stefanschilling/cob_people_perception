@@ -125,29 +125,38 @@ bool FaceNormalizer::synthFace(cv::Mat &RGB,cv::Mat& XYZ, cv::Size& norm_size, s
 {
 	//isolate face?
 	//isolateFace();
-
+	//cv::imshow ("received img", RGB);
+	//cv::waitKey();
 	bool valid = true; // Flag only returned true if all steps have been completed successfully
 
 	//epoch_ctr_++;
 	//geometric normalization
 	if(config_.align)
 	{
-		cv::Mat GRAY;
+		cv::Mat GRAY,GRAY2;
 		cv::cvtColor(RGB,GRAY,CV_RGB2GRAY);
-
+		//cv::imshow ("img after gray", GRAY);
 		// remove background
 		//isolateFace(GRAY,XYZ);
 
-		//reduce XYZ mat to same, even size as img (after normalize_radiometry)
+		//adjust img and XYZ mat to size which their normalized versions will have
+		//TODO
+		//input images are currently square, so this could be done in one step
+		// - any plans to change from square head/face rectangles?
 		if( GRAY.rows&(2) != 0 )
 		{
 			XYZ=XYZ(cv::Rect(0,0,XYZ.cols,XYZ.rows-1));
+			GRAY=GRAY(cv::Rect(0,0,GRAY.cols,GRAY.rows-1));
 		}
 		if( GRAY.cols&(2) != 0 )
 		{
 			XYZ=XYZ(cv::Rect(0,0,XYZ.cols-1,XYZ.rows));
+			GRAY=GRAY(cv::Rect(0,0,GRAY.cols-1,GRAY.rows));
 		}
-		normalize_radiometry(GRAY);
+		//dont normalize here, normalization works on histograms and is used for face images for best end-results.
+		//normalize_radiometry(GRAY);
+		//cv::imshow ("gray after radiometry", GRAY);
+		//cv::waitKey();
 
 		if(!synth_head_poses(GRAY,XYZ,training_path,img_count,norm_size))
 		{
@@ -184,7 +193,6 @@ bool FaceNormalizer::normalizeFace( cv::Mat& img,cv::Mat& depth,cv::Size& norm_s
   //geometric normalization
   if(config_.align)
   {
-	std::cout << "yo"<<std::endl;
     if(!normalize_geometry_depth(img,depth)) valid=false;
   }
 
@@ -400,17 +408,17 @@ bool FaceNormalizer::synth_head_poses(cv::Mat& img,cv::Mat& depth, std::string t
 {
 	//variables for face detection
 	double faces_increase_search_scale = 1.1;		// The factor by which the search window is scaled between the subsequent scans
-	int faces_drop_groups = 30;					// Minimum number (minus 1) of neighbor rectangles that makes up an object.
-	int faces_min_search_scale_x = 10;			// Minimum search scale x
-	int faces_min_search_scale_y = 10;			// Minimum search scale y
+	int faces_drop_groups = 2;					// Minimum number (minus 1) of neighbor rectangles that makes up an object.
+	int faces_min_search_scale_x = 20;			// Minimum search scale x
+	int faces_min_search_scale_y = 20;			// Minimum search scale y
 	//std::string faceCascadePath = ros::package::getPath("cob_people_detection") + "/common/files/" + "haarcascades/haarcascade_frontalface_alt2.xml";
-	//std::string faceCascadePath = "/home/rmb-ss/git/care-o-bot/cob_people_perception/cob_people_detection/common/files/haarcascades/haarcascade_frontalface_alt2.xml";
 	std::string faceCascadePath = "/home/stefan/git/cob_people_perception/cob_people_detection/common/files/haarcascades/haarcascade_frontalface_alt2.xml";
 	CvHaarClassifierCascade* m_face_cascade = (CvHaarClassifierCascade*)cvLoad(faceCascadePath.c_str(), 0, 0, 0 );	//"ConfigurationFiles/haarcascades/haarcascade_frontalface_alt2.xml", 0, 0, 0 );
 	CvMemStorage* m_storage = cvCreateMemStorage(0);
 	IplImage imgPtr = (IplImage)img;
 
-	//add source img if face is found in it
+	//add source img if face is found in it with required face.
+	//face image is normalized and resized as in normalizeFace
 	CvSeq* faces = cvHaarDetectObjects(&imgPtr,	m_face_cascade,	m_storage, faces_increase_search_scale, faces_drop_groups, CV_HAAR_DO_CANNY_PRUNING, cv::Size(faces_min_search_scale_x, faces_min_search_scale_y));
 	if (faces->total ==1)
 	{
@@ -418,10 +426,13 @@ bool FaceNormalizer::synth_head_poses(cv::Mat& img,cv::Mat& depth, std::string t
 		//exclude faces that are too small for the head bounding box
 		if (face->width > 0.4*img.cols && face->height > 0.4*img.rows)
 		{
-			cv::Mat synth_img=img(cv::Rect(face->x,face->y, face->width,face->height));
+			cv::Mat synth_img;
+			img(cv::Rect(face->x,face->y, face->width,face->height)).copyTo(synth_img);
 			cv::Mat synth_dm = depth(cv::Rect(face->x,face->y, face->width,face->height));
+			normalize_radiometry(synth_img);
 			//TODO
 			//test resizing vs roi around nose used in other functions of face_normalizer
+			// DONE. Using ROI has negative influence on recognition.
 			cv::resize(synth_img,synth_img,norm_size,0,0);
 			cv::resize(synth_dm,synth_dm,norm_size,0,0);
 			//save resulting image and depth mat
@@ -438,16 +449,16 @@ bool FaceNormalizer::synth_head_poses(cv::Mat& img,cv::Mat& depth, std::string t
 			fs.release();
 			img_count++;
 			std::cout << "added source img and depth\n";
-			//std
-			//std::cout << "cut out face size: " << face_img.size() << std::endl;
-			//std::cout << face->height << "," << face->width<<","<<face->x<<","<<face->y <<std::endl;
-			//cv::imshow("Face Detection",face_img);
-			//cv::waitKey();
 		}
 	}
 
+	// feature detection runs better on a normalized image
+	cv::Mat norm_head_img;
+	img.copyTo(norm_head_img);
+	normalize_radiometry(norm_head_img);
+
 	// detect features
-	if(!features_from_color(img))
+	if(!features_from_color(norm_head_img))
 	{
 		std::cout <<"features in color missing"<<std::endl;
 		return false;
@@ -524,21 +535,9 @@ bool FaceNormalizer::synth_head_poses(cv::Mat& img,cv::Mat& depth, std::string t
 	cv::Rect roi;
 	cv::Mat workmat=cv::Mat(depth.rows,depth.cols,CV_32FC3);
 
-//  // eliminate background
-//  cv::Vec3f* xyz_ptr=depth.ptr<cv::Vec3f>(0,0);
-//  for(int r=0;r<depth.total();r++)
-//  {
-//    if((*xyz_ptr)[2]>background_thresh ||(*xyz_ptr)[2]<0)
-//    {
-//      // set this to invalid value
-//      *xyz_ptr=cv::Vec3f(-1000,-1000,-1000);
-//    }
-//    xyz_ptr++;
-//  }
-
 	//number of poses
-	int N=24;
-	float rot_step = 0.04;
+	int N=96;
+	float rot_step = 0.02;
 	std::cout<<"Synthetic POSES"<<std::endl;
 
 	for(int i=0;i<N;i++)
@@ -546,8 +545,8 @@ bool FaceNormalizer::synth_head_poses(cv::Mat& img,cv::Mat& depth, std::string t
 		//std::cout << "synth pose no: " << i ;
 		Eigen::Vector3f xy_new = x_new+y_new;
 		Eigen::Vector3f yx_new = x_new-y_new;
-
-		if(i<N/8)alpha=Eigen::AngleAxis<float>(((float)(i+1)*rot_step)*M_PI, x_new);
+		if(i==-1)alpha=Eigen::AngleAxis<float>(((float)0.0),x_new);
+		if(i>=0&&i<N/8)alpha=Eigen::AngleAxis<float>(((float)(i+1)*rot_step)*M_PI, x_new);
 		else if(i>=N/8&&i<2*N/8)alpha=Eigen::AngleAxis<float>((((float)(i+1)-N/8)*rot_step)*M_PI, y_new);
 		else if(i>=2*N/8&&i<=3*N/8)alpha=Eigen::AngleAxis<float> ((((float)(i+1)-2*N/8)*rot_step)*M_PI, xy_new);
 		else if(i>=3*N/8&&i<=4*N/8)alpha=Eigen::AngleAxis<float> ((((float)(i+1)-3*N/8)*rot_step)*M_PI, yx_new);
@@ -560,9 +559,9 @@ bool FaceNormalizer::synth_head_poses(cv::Mat& img,cv::Mat& depth, std::string t
 		T_rot.setIdentity();
 		T_rot=alpha*T_rot;
 
-		dmres=cv::Mat::zeros(640,480,CV_32FC3);
-		if(img.channels()==3)imgres=cv::Mat::zeros(640,480,CV_8UC3);
-		if(img.channels()==1)imgres=cv::Mat::zeros(640,480,CV_8UC1);
+		dmres=cv::Mat::zeros(480,640,CV_32FC3);
+		if(img.channels()==3)imgres=cv::Mat::zeros(480,640,CV_8UC3);
+		if(img.channels()==1)imgres=cv::Mat::zeros(480,640,CV_8UC1);
 
 		depth.copyTo(workmat);
 		cv::Vec3f* ptr=workmat.ptr<cv::Vec3f>(0,0);
@@ -580,12 +579,20 @@ bool FaceNormalizer::synth_head_poses(cv::Mat& img,cv::Mat& depth, std::string t
 			(*ptr)[2]=pt[2];
 			ptr++;
 		}
-
+		//std::cout << "project pcl" << std::endl;
 		projectPointCloudSynth(img,workmat,imgres,dmres);
+
 		//TODO:
 		//confirm if created image is recognized as face? - DONE
-		//decide if we want to detect actual face area from result picture or simply use a roi determined by geometrical position of eyes and nose after transform
+		//TODO:
+		//decide if we want to detect actual face area from result picture or
+		//use a roi determined by geometrical position of eyes and nose after transform
+		// - DONE. Using detected face in created image produced better results
+
+		//detect face in rotated head image.
+		//normalize detections of sufficient size as in normalizeFace
 		bool detect_face =true;
+		//std::cout << "detect face" << std::endl;
 		if (detect_face)
 		{
 			IplImage imgPtr = (IplImage)imgres;
@@ -594,14 +601,14 @@ bool FaceNormalizer::synth_head_poses(cv::Mat& img,cv::Mat& depth, std::string t
 			//std::cout << "Face in synth image: " << faces->total << std::endl;
 			if (faces->total ==1)
 			{
+
 				cv::Rect* face = (cv::Rect*)cvGetSeqElem(faces, 0);
 				//exclude faces that are too small for the head bounding box
 				if (face->width > 0.4*img.cols && face->height > 0.4*img.rows)
 				{
 					cv::Mat synth_img=imgres(cv::Rect(face->x,face->y, face->width,face->height));
 					cv::Mat synth_dm = dmres(cv::Rect(face->x,face->y, face->width,face->height));
-					//TODO
-					//test resizing vs roi around nose used in other functions of face_normalizer
+					normalize_radiometry(synth_img);
 					cv::resize(synth_img,synth_img,norm_size,0,0);
 					cv::resize(synth_dm,synth_dm,norm_size,0,0);
 					//save resulting image and depth mat
@@ -628,25 +635,7 @@ bool FaceNormalizer::synth_head_poses(cv::Mat& img,cv::Mat& depth, std::string t
 	img_count = img_count+img_added;
 	std::cout << "additional images created for training: " << img_added << std::endl;
 	std::cout << "new image total: " << img_count << std::endl;
-//
-//	}
-//
-//	//detecting face in source image?
-//	IplImage imgPtr = (IplImage)img;
-//	double faces_increase_search_scale = 1.1;		// The factor by which the search window is scaled between the subsequent scans
-//	int faces_drop_groups = 30;					// Minimum number (minus 1) of neighbor rectangles that makes up an object.
-//	int faces_min_search_scale_x = 10;			// Minimum search scale x
-//	int faces_min_search_scale_y = 10;			// Minimum search scale y
-//	//std::string faceCascadePath = ros::package::getPath("cob_people_detection") + "/common/files/" + "haarcascades/haarcascade_frontalface_alt2.xml";
-//	//std::string faceCascadePath = "/home/rmb-ss/git/care-o-bot/cob_people_perception/cob_people_detection/common/files/haarcascades/haarcascade_frontalface_alt2.xml";
-//	std::string faceCascadePath = "/home/stefan/git/cob_people_perception/cob_people_detection/common/files/haarcascades/haarcascade_frontalface_alt2.xml";
-//
-//	CvHaarClassifierCascade* m_face_cascade = (CvHaarClassifierCascade*)cvLoad(faceCascadePath.c_str(), 0, 0, 0 );	//"ConfigurationFiles/haarcascades/haarcascade_frontalface_alt2.xml", 0, 0, 0 );
-//	CvMemStorage* m_storage = cvCreateMemStorage(0);
-//	CvSeq* faces = cvHaarDetectObjects(&imgPtr,	m_face_cascade,	m_storage, faces_increase_search_scale, faces_drop_groups, CV_HAAR_DO_CANNY_PRUNING, cv::Size(faces_min_search_scale_x, faces_min_search_scale_y));
-//	std::cout << "Face in Source IMG? " << faces->total << std::endl;
-
-return true;
+	return true;
 }
 
 bool FaceNormalizer::projectPointCloud(cv::Mat& img, cv::Mat& depth, cv::Mat& img_res, cv::Mat& depth_res)
@@ -803,6 +792,9 @@ bool FaceNormalizer::projectPointCloud(cv::Mat& img, cv::Mat& depth, cv::Mat& im
 
 bool FaceNormalizer::projectPointCloudSynth(cv::Mat& img, cv::Mat& depth, cv::Mat& img_res_fltr, cv::Mat& depth_res)
 {
+	//std::cout << "received: " <<std::endl;
+	//std::cout << img.size() << std::endl;
+	//std::cout << depth.size() << std::endl;
 	int channels=img.channels();
 
 	cv::Mat pc_xyz,pc_rgb;
@@ -848,15 +840,7 @@ bool FaceNormalizer::projectPointCloudSynth(cv::Mat& img, cv::Mat& depth, cv::Ma
 			pc_proj_ptr++;
 			pc_ptr++;
 		}
-//		img_test = img_test.reshape(1,img.rows);
-//		std::cout << img_test.size() <<std::endl;
-//		cv::imshow("testimage", img_test);
-//		std::cout << "pc_xyz cols: " << pc_xyz.cols << std::endl;
-//		std::cout << "pc_proj: " << pc_proj.rows << std::endl;
-//		std::cout << "expected proj_map: " << img.rows*img.cols << std::endl;
-//		std::cout << "proj_map: " << proj_map.size() << std::endl;
-//		std::cout << "06";
-
+		//std::cout << "points on sensor added to proj map pairs: " << proj_map.size() << std::endl;
 		//assign values based on map
 		for(std::map <std::pair<int,int>,std::vector<std::pair<cv::Vec3f, unsigned char > > >::iterator it=proj_map.begin(); it!=proj_map.end(); ++it)
 		{
@@ -878,6 +862,7 @@ bool FaceNormalizer::projectPointCloudSynth(cv::Mat& img, cv::Mat& depth, cv::Ma
 				}
 			}
 		}
+
 		//std::cout << " z-based assignment done \n ";
 		proj_map.clear();
 
@@ -885,13 +870,13 @@ bool FaceNormalizer::projectPointCloudSynth(cv::Mat& img, cv::Mat& depth, cv::Ma
 		depth_res = depth_res_zwin.clone();
 		bool filter = true;
 		if (filter)
-			{
+		{
 			// fill in gaps for points inside of head contour, remove straggler points from color and depth matrix
 
 			// blur to fill gaps in face image, erode and dilate to cut out any "straggler" points
 			// and other parts drifting away from the face for lack of depth point cohesion
 			int erosion_size = 2;
-			cv::Mat contour_mat=cv::Mat::zeros(640,480,CV_8UC1);
+			cv::Mat contour_mat=cv::Mat::zeros(480,640,CV_8UC1);
 			cv::Mat element = cv::getStructuringElement( MORPH_RECT, Size( 2*erosion_size + 1, 2*erosion_size+1 ));
 			cv::GaussianBlur(img_res_zwin,contour_mat, cv::Size(3,3),0,0);
 			cv::erode(contour_mat,contour_mat,element);
@@ -967,14 +952,14 @@ bool FaceNormalizer::projectPointCloudSynth(cv::Mat& img, cv::Mat& depth, cv::Ma
 				}
 			}
 		}
-//		cv::GaussianBlur(img_res_fltr,img_res_fltr, cv::Size(3,3),0,0);
-//		cv::GaussianBlur(img_res_fltr,img_res_fltr, cv::Size(3,3),0,0);
+
+		cv::GaussianBlur(img_res_fltr,img_res_fltr, cv::Size(3,3),0,0);
+		cv::GaussianBlur(img_res_fltr,img_res_fltr, cv::Size(3,3),0,0);
 
 		//cv::imshow("original", img);
 		//cv::imshow("eroded zwin", src_erode);
 		//cv::imshow("dilated zwin", src_dilate);
 		//cv::imshow("zwin", img_res_zwin);
-		//cv::imshow("Outside Contour", outside_drawing);
 		//cv::imshow("filtered zwin", img_res_fltr);
 		//cv::waitKey();
 	}
