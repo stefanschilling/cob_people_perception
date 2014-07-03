@@ -120,7 +120,8 @@ void rewrite_tdata(std::string& training_path, std::string& added_label, int& im
 int main(int argc, const char *argv[])
 {
 	//set up variables
-	int img_count, img_count_current;
+	int img_count, img_count_current, step_size, step_no;
+	step_size=step_no=0;
 	std::vector<std::string> xmls;
 	std::string set, set_list, src_set, src_persp, bmp_path,training_path, label, path;
 	training_path = "/home/stefan/.ros/cob_people_detection/files/training_data/";
@@ -128,11 +129,37 @@ int main(int argc, const char *argv[])
 	cv::Mat depth, img;
 	cv::Size norm_size=cv::Size(100,100);
 
+	//create directories for synth images and xyz-mats if they do not exist
+	boost::filesystem::path synth_depth_path = training_path + "synth_depth_test";
+	boost::filesystem::path synth_img_path = training_path + "synth_img_test";
+	if (!boost::filesystem::exists (synth_depth_path)||!boost::filesystem::exists ( synth_img_path))
+	{
+		std::cout << "creating img and xyz directories for additional data" << std::endl;
+		if (boost::filesystem::create_directory(synth_depth_path) && boost::filesystem::create_directory(synth_img_path))
+		{
+			std::cout << "directories ready" <<std::endl;
+		}
+		else
+		{
+			std::cout << "creating directories failed" <<std::endl;
+			return 0;
+		}
+	}
+
 	//ask set list
 	std::cout << "set list to use: ";
 	std::cin >> set_list;
 	set_list = "/home/stefan/rgbd_db_tools/sets/set"+set_list+".txt";
 	std::ifstream set_file(set_list.c_str());
+
+	//ask size and number of steps for synth poses
+	std::cout << "Rotation step size (0 = train source images only):"<<std::endl;
+	std::cin >> step_size;
+	if (step_size > 0)
+	{
+		std::cout << "Number of steps per rotation (total attempted images: 8x step number)" <<std::endl;
+		std::cin >> step_no;
+	}
 
 	//read list of sets to create images from
 	if (set_file.is_open())
@@ -150,7 +177,7 @@ int main(int argc, const char *argv[])
 	std::ifstream persp_file("/home/stefan/rgbd_db_tools/perspectives.txt");
 	if (persp_file.is_open())
 	{
-		std::cout << "Perspectives used to check recognition: ";
+		std::cout << "Perspectives used for training: ";
 		while (std::getline(persp_file, set))
 		{
 			std::cout << set << ", ";
@@ -181,7 +208,7 @@ int main(int argc, const char *argv[])
 	}
 	else
 	{
-		std::cout << "unable to read tdata2.xml, creating new one starting at 0 entries" <<std::endl;
+		std::cout << "unable to read tdata2.xml, starting new file at entry 0" <<std::endl;
 		img_count = img_count_current= 0;
 	}
 
@@ -220,7 +247,7 @@ int main(int argc, const char *argv[])
 					img = cv::imread(bmp_path, CV_LOAD_IMAGE_COLOR);
 					//cv::imshow("img sent",img);
 					//cv::waitKey();
-					if(fn.synthFace(img,depth,norm_size,training_path,img_count))
+					if(fn.synthFace(img,depth,norm_size,training_path,img_count,step_size, step_no))
 					{
 						std::cout << "images added from source image " << bmp_path << ": " << img_count-img_count_current <<std::endl;
 					}
