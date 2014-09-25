@@ -154,7 +154,7 @@ unsigned long ipa_PeopleDetector::FaceRecognizer::init(std::string data_director
 
   FaceNormalizer::FNConfig fn_cfg;
   fn_cfg.eq_ill=  norm_illumination;
-  fn_cfg.align=   norm_align;
+  fn_cfg.align=   false;
   fn_cfg.resize=  true;
   fn_cfg.cvt2gray=true;
   fn_cfg.extreme_illumination_condtions=norm_extreme_illumination;
@@ -202,7 +202,6 @@ unsigned long ipa_PeopleDetector::FaceRecognizer::initTraining(std::string data_
 	return ipa_Utils::RET_OK;
 }
 
-
 unsigned long ipa_PeopleDetector::FaceRecognizer::addFace(cv::Mat& color_image, cv::Mat& depth_image,cv::Rect& face_bounding_box,cv::Rect& head_bounding_box,std::string label, std::vector<cv::Mat>& face_images,std::vector<cv::Mat>& face_depthmaps)
 {
 	// secure this function with a mutex
@@ -215,9 +214,12 @@ unsigned long ipa_PeopleDetector::FaceRecognizer::addFace(cv::Mat& color_image, 
 	cv::Mat roi_depth_xyz = depth_image(face_bounding_box).clone();
 	cv::Size norm_size=cv::Size(m_norm_size,m_norm_size);
 	cv::Mat roi_depth;
-	float score;
 	//if(!face_normalizer_.normalizeFace(roi_color,roi_depth_xyz,norm_size)) ;
-	face_normalizer_.recordFace(roi_color,roi_depth_xyz);
+
+	//stores scene, fixed path points to /share/goa-tz
+	//face_normalizer_.recordFace(roi_color,roi_depth_xyz);
+
+	//normalizes image according to settings (illumination, geometry, size)
 	if(!face_normalizer_.normalizeFace(roi_color,roi_depth_xyz,norm_size))
 		return ipa_Utils::RET_FAILED;
 
@@ -228,6 +230,58 @@ unsigned long ipa_PeopleDetector::FaceRecognizer::addFace(cv::Mat& color_image, 
 	dm_exist.push_back(true);
 
 	return ipa_Utils::RET_OK;
+}
+
+unsigned long ipa_PeopleDetector::FaceRecognizer::addSynthFace(cv::Mat& color_image, cv::Mat& depth_image,cv::Rect& face_bounding_box,cv::Rect& head_bounding_box,std::string label, float& rotation_deg, int& rotation_step, std::vector<cv::Mat>& face_images,std::vector<cv::Mat>& face_depthmaps)
+{
+	std::cout << " ADDING SYNTH FACES - FACE RECOGNIZER" << std::endl;
+	// secure this function with a mutex
+	boost::lock_guard<boost::mutex> lock(m_data_mutex);
+	// push back original face image after normalization.
+	cv::Mat roi_color = color_image(face_bounding_box);
+	cv::Mat roi_depth_xyz = depth_image(face_bounding_box).clone();
+	cv::Size norm_size=cv::Size(m_norm_size,m_norm_size);
+	cv::Mat roi_depth;
+
+	// normalizes image according to settings (illumination, geometry, size)
+	if(!face_normalizer_.normalizeFace(roi_color,roi_depth_xyz,norm_size))
+	{
+		std::cout << "ret failed for synthFace in facerecognizer" << std::endl;
+		cv::imshow("1 the fail!",roi_color);
+		cv::waitKey();
+		return ipa_Utils::RET_FAILED;
+	}
+
+	// Save image
+	face_images.push_back(roi_color);
+	face_depthmaps.push_back(roi_depth_xyz);
+	m_face_labels.push_back(label);
+	dm_exist.push_back(true);
+
+	std::cout << "Size der vectoren vor Synth \nface_images: " <<face_images.size() <<
+			"\nface_depthmaps: " << face_depthmaps.size() << "\nm_face_labels: " << m_face_labels.size() <<
+			"\n dm_exist: " << dm_exist.size() << std::endl;
+
+	// rotate head pointcloud to create additional image data
+	std::cout << "return of face_normalizer_.synthFace: " <<face_normalizer_.synthFace(color_image, depth_image, norm_size, face_images, face_depthmaps, rotation_deg, rotation_step) << std::endl;
+	int previous_db_size=m_face_labels.size();
+	for (int i=0; i< face_images.size()-previous_db_size;i++)
+	{
+		m_face_labels.push_back(label);
+		dm_exist.push_back(true);
+	}
+	std::cout << "Size der vectoren NACH Synth \nface_images: " <<face_images.size() <<
+				"\nface_depthmaps: " << face_depthmaps.size() << "\nm_face_labels: " << m_face_labels.size() <<
+				"\n dm_exist: " << dm_exist.size() << std::endl;
+	return ipa_Utils::RET_OK;
+}
+
+float ipa_PeopleDetector::FaceRecognizer::FaceFeatureOrientationScore(cv::Mat& img,cv::Mat& depth)
+{
+
+	float score;
+	if (face_normalizer_.frontFaceImage(img, depth, score))	return score;
+	else return -1.0;
 }
 
 unsigned long ipa_PeopleDetector::FaceRecognizer::updateFaceLabels(std::string old_label, std::string new_label)
@@ -700,7 +754,7 @@ unsigned long ipa_PeopleDetector::FaceRecognizer::saveTrainingData(std::vector<c
 			fileStorage << tag.str().c_str() << m_face_labels[i].c_str();
 
 			// face images
-      boost::filesystem::path img_path=path/"img"/(boost::lexical_cast<string>(i)+img_ext);
+			boost::filesystem::path img_path=path/"img"/(boost::lexical_cast<string>(i)+img_ext);
 			std::ostringstream img, shortname_img, shortname_depth;
 			shortname_img << "img/" << i << img_ext;
 			std::ostringstream tag2, tag3;
@@ -724,7 +778,7 @@ unsigned long ipa_PeopleDetector::FaceRecognizer::saveTrainingData(std::vector<c
 			if (dm_exist[i])
 			{
 				// depth maps
-      boost::filesystem::path dm_path=path/"depth"/(boost::lexical_cast<string>(i)+".xml");
+				boost::filesystem::path dm_path=path/"depth"/(boost::lexical_cast<string>(i)+".xml");
 				cv::FileStorage fs(dm_path.string(), FileStorage::WRITE);
 				fs << "depthmap" << face_depthmaps[j];
 				fs.release();

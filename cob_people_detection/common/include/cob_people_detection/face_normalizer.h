@@ -175,13 +175,16 @@ class FaceNormalizer{
 	/// @return Return true/false whether normalization was successful.
     bool normalizeFace( cv::Mat & RGB,cv::Mat& XYZ,cv::Size& norm_size);
 
-
     //TODO documentation
-    /// Function to synthetisize artificial poses from one image
-    bool synthFace(cv::Mat &RGB,cv::Mat& XYZ, cv::Size& norm_size, std::string training_path, int& img_count, int& step_size, int& step_no);
+    /// Function to synthetisize artificial poses from one image. 1st variant saves directly, creating a separate tdata file.
+    bool synthFace(cv::Mat &RGB,cv::Mat& XYZ, cv::Size& norm_size, std::string training_path, int& img_count, float& step_size, int& step_no, std::vector<int>& imgs_per_axis);
+    bool synth_head_poses(cv::Mat& img,cv::Mat& depth, std::string training_path, int& img_count,cv::Size& norm_size, float& step_size, int& step_no, std::vector<int>& imgs_per_axis);
+    /// 2nd variant keeps img data in vectors to be saved through face_recognizer::save_training_data
+    bool synthFace(cv::Mat &RGB, cv::Mat& XYZ, cv::Size& norm_size, std::vector<cv::Mat>& images, std::vector<cv::Mat>& depthmaps, float& step_size, int& step_no);
+    bool synth_head_poses(cv::Mat& img,cv::Mat& depth, cv::Size& norm_size, std::vector<cv::Mat>& images, std::vector<cv::Mat>& depthmaps, float& step_size, int& step_no);
+
     bool read_scene_from_training(cv::Mat& RGB,cv::Mat& XYZ,std::string path, int image_id);
-    bool frontFaceImage(cv::Mat& img,cv::Mat& depth,std::vector<float>& scores);
-    bool synth_head_poses(cv::Mat& img,cv::Mat& depth, std::string training_path, int& img_count,cv::Size& norm_size, int& step_size, int& step_no);
+    bool frontFaceImage(cv::Mat& img,cv::Mat& depth,float& score);
     bool synth_head_poses_relative(cv::Mat& img,cv::Mat& depth,std::vector<cv::Mat>& synth_images);
     bool eliminate_background(cv::Mat& RGB,cv::Mat& XYZ,float background_thresh);
     bool isolateFace(cv::Mat& RGB,cv::Mat& XYZ);
@@ -270,7 +273,7 @@ class FaceNormalizer{
     /// @param[out] img_res Resulting projected image.
     /// @param[out] depth_res Resulting projected depth image.
     /// @return Return true/false whether projection was successful.
-    bool projectPointCloudSynth(cv::Mat& RGB, cv::Mat& XYZ, cv::Mat& img_res, cv::Mat& depth_res);
+    bool projectPointCloudSynth(cv::Mat& RGB, cv::Mat& XYZ, cv::Mat& img_res, cv::Mat& depth_res, int& min_valid_points);
 
     /// The function projects  XYZ information of point to image plane.
     /// @brief Function projects point to image plane.

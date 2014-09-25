@@ -85,6 +85,7 @@
 // actions
 #include <actionlib/server/simple_action_server.h>
 #include <cob_people_detection/addDataAction.h>
+#include <cob_people_detection/addSynthDataAction.h>
 #include <cob_people_detection/updateDataAction.h>
 #include <cob_people_detection/deleteDataAction.h>
 
@@ -114,6 +115,8 @@ namespace ipa_PeopleDetector {
 typedef actionlib::SimpleActionServer<cob_people_detection::addDataAction> AddDataServer;
 typedef actionlib::SimpleActionServer<cob_people_detection::updateDataAction> UpdateDataServer;
 typedef actionlib::SimpleActionServer<cob_people_detection::deleteDataAction> DeleteDataServer;
+typedef actionlib::SimpleActionServer<cob_people_detection::addSynthDataAction> AddSynthDataServer;
+
 
 class FaceCaptureNode
 {
@@ -134,7 +137,11 @@ protected:
 	bool finish_image_capture_;					///<
 	enum CaptureMode {MANUAL=0, CONTINUOUS};
 	enum UpdateMode {BY_INDEX=1, BY_LABEL};
+	enum LabelMode {SIMPLE=0,AXIS_STAMPED=1};
 	//enum DeleteMode {BY_INDEX=1, BY_LABEL};
+	int rotation_step_, center_score, off_center_score_1, off_center_score_2;
+	float rotation_deg_;
+
 
 	image_transport::ImageTransport* it_;
 //	image_transport::SubscriberFilter people_segmentation_image_sub_; ///< Color camera image topic
@@ -145,7 +152,8 @@ protected:
 	image_transport::SubscriberFilter color_image_sub_; ///< Color camera image topic
 
 	// actions
-	AddDataServer* add_data_server_;				///< Action server that handles add data requests
+	AddDataServer* add_data_server_;///< Action server that handles add data requests
+	AddSynthDataServer* add_synth_data_server_;		///< Action server that handles requests to add data and supplement it with rotated pictures.
 	UpdateDataServer* update_data_server_;			///< Action server that handles update data requests
 	DeleteDataServer* delete_data_server_;			///< Action server that handles delete data requests
 
@@ -167,9 +175,13 @@ protected:
 
 
 	void addDataServerCallback(const cob_people_detection::addDataGoalConstPtr& goal);
+	void addSynthDataServerCallback(const cob_people_detection::addSynthDataGoalConstPtr& goal);
 
 	/// checks the detected faces from the input topic against the people segmentation and outputs faces if both are positive
 	void inputCallback(const cob_people_detection_msgs::ColorDepthImageArray::ConstPtr& face_detection_msg);//, const sensor_msgs::Image::ConstPtr& color_image_msg);
+
+	/// checks the detected faces from the input topic against the people segmentation and outputs faces if both are positive. Saves the Head/Face closest to the center of the image for training purposes.
+	void inputCallbackCenter(const cob_people_detection_msgs::ColorDepthImageArray::ConstPtr& face_detection_msg);//, const sensor_msgs::Image::ConstPtr& color_image_msg)
 
 	/// Converts a color image message to cv::Mat format.
 	unsigned long convertColorImageMessageToMat(const sensor_msgs::Image::ConstPtr& image_msg, cv_bridge::CvImageConstPtr& image_ptr, cv::Mat& image);

@@ -847,9 +847,8 @@ void DetectionTrackerNode::inputCallback(const cob_people_detection_msgs::Detect
 					face_position_accumulator_.erase(face_position_accumulator_.begin()+previous_match_index);
 					face_identification_votes_.erase(face_identification_votes_.begin()+previous_match_index);
 					face_image_accumulator_.erase(face_image_accumulator_.begin()+previous_match_index);
-					std::cout << "deleted entry of last entity at this position \n";
-
-					std::cout << " Matching to previous detections was blocked because of low image similarities! ";
+					//std::cout << "deleted entry of last entity at this position \n";
+					//std::cout << " Matching to previous detections was blocked because of low image similarities! ";
 					/*if (costs_matrix_image[previous_match_index][current_match_index] > 83)
 					{
 						TODO: can we check suspected false detections again or remove them outright instead of creating new detections for them?

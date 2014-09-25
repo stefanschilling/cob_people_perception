@@ -65,6 +65,8 @@
 #include <cob_people_detection/loadModelAction.h>
 #include <cob_people_detection/getDetectionsAction.h>
 
+#include <cob_people_detection/addSynthDataAction.h>
+
 
 // services
 #include <cob_people_detection/captureImage.h>
@@ -101,6 +103,7 @@ typedef actionlib::SimpleActionClient<cob_people_detection::updateDataAction> Up
 typedef actionlib::SimpleActionClient<cob_people_detection::deleteDataAction> DeleteDataClient;
 typedef actionlib::SimpleActionClient<cob_people_detection::loadModelAction> LoadModelClient;
 typedef actionlib::SimpleActionClient<cob_people_detection::getDetectionsAction> GetDetectionsClient;
+typedef actionlib::SimpleActionClient<cob_people_detection::addSynthDataAction> AddSynthDataClient;
 
 
 void addData(AddDataClient& add_data_client, ros::ServiceClient& capture_image_client, ros::ServiceClient& finish_recording_client)
@@ -335,6 +338,87 @@ void getDetections(GetDetectionsClient& get_detections_client)
 	printf("Current State: %s   Message: %s\n", get_detections_client.getState().toString().c_str(), get_detections_client.getState().getText().c_str());
 }
 
+void addSynthData(AddSynthDataClient& add_synth_data_client, ros::ServiceClient& capture_image_client, ros::ServiceClient& finish_recording_client)
+{
+	cob_people_detection::addSynthDataGoal goal;
+
+	std::cout << "Input the label of the captured person: ";
+	std::cin >> goal.label;
+
+	std::cout << "Mode of data capture: 0=manual, 1=pictures taken based on face alignment: ";
+	std::cin >> goal.capture_mode;
+
+	if (goal.capture_mode == 1)
+	{
+		std::cout << "How many images shall be captured automatically? ";
+		std::cin >> goal.continuous_mode_images_to_capture;
+
+		std::cout << "What is the desired delay time in seconds between two recordings? ";
+		std::cin >> goal.continuous_mode_delay;
+	}
+
+	std::cout << "Settings to use: 0=default (0.03rad, 7steps, single label) 1=manual ";
+	std::cin >> goal.label_mode;
+	if (goal.label_mode == 1)
+	{
+		std::cout << "Rotation per Step? ";
+		std::cin >> goal.rotation_deg;
+
+		std::cout << "Number of Rotation Steps? ";
+		std::cin >> goal.rotation_step;
+	}
+	else
+	{
+		goal.rotation_deg = 0.03;
+		goal.rotation_step = 7;
+	}
+
+	// send goal to server
+	add_synth_data_client.sendGoal(goal);
+	std::cout << "Recording job was sent to the server ..." << std::endl;
+
+	// enable control in manual mode
+	if (goal.capture_mode == 0)
+	{
+		// wait for server to provide the capture and finish service
+		std::cout << "Waiting for the capture service to become available ..." << std::endl;
+		capture_image_client.waitForExistence();
+		finish_recording_client.waitForExistence();
+
+		// capture
+		std::cout << "Hit 'q' key to quit or 'c' key to capture an image.\n";
+		cob_people_detection::captureImageRequest capture_image_request;
+		cob_people_detection::captureImageResponse capture_image_response;
+		char key;
+		while ((key=getch()) != 'q')
+		{
+			if (key == 'c')
+			{
+				printf("Image capture initiated ... \n");
+				if (capture_image_client.call(capture_image_request, capture_image_response) == true)
+					printf("   image %d successfully captured.\n", capture_image_response.number_captured_images);
+				else
+					printf("   image capture not successful.\n");
+			}
+		}
+
+		printf("Finishing recording ...\n");
+
+		// tell server to finish recording
+		cob_people_detection::finishRecording finish_recording;
+		finish_recording_client.call(finish_recording);
+	}
+
+	add_synth_data_client.waitForResult();
+
+	if (add_synth_data_client.getState() == actionlib::SimpleClientGoalState::SUCCEEDED)
+		printf("Data recording finished successfully.\n");
+	else
+		printf("Data recording did not finish successfully.\n");
+
+	printf("Current State: %s   Message: %s\n", add_synth_data_client.getState().toString().c_str(), add_synth_data_client.getState().getText().c_str());
+}
+
 int main(int argc, char** argv)
 {
 	ros::init(argc, argv, "cob_people_detection_client");
@@ -350,6 +434,8 @@ int main(int argc, char** argv)
 	GetDetectionsClient get_detections_client("/cob_people_detection/coordinator/get_detections_server", true);
 	ros::ServiceClient sensor_message_gateway_open_client = nh.serviceClient<cob_people_detection::recognitionTrigger>("/cob_people_detection/coordinator/start_recognition");
 	ros::ServiceClient sensor_message_gateway_close_client = nh.serviceClient<std_srvs::Empty>("/cob_people_detection/coordinator/stop_recognition");
+
+	AddSynthDataClient add_synth_data_client("/cob_people_detection/face_capture/add_synth_data_server",true);
 
 	if (!add_data_client.waitForServer(ros::Duration(2.0)))
 	{
@@ -377,13 +463,18 @@ int main(int argc, char** argv)
 		return 0;
 	}
 
+	if (!add_synth_data_client.waitForServer(ros::Duration(2.0)))
+	{
+		std::cout << "No connection to server 'add_synth_data_server'.\n";
+		return 0;
+	}
 	std::cout << "Connected to servers.\n";
 
 
 	char key = 'q';
 	do
 	{
-		std::cout << "\n\nChoose an option:\n1 - capture face images\n2 - update database labels\n3 - delete database entries\n4 - load recognition model (necessary if new images/persons were added to the database)\n5 - activate/deactivate sensor message gateway\n6 - get detections\nq - Quit\n\n";
+		std::cout << "\n\nChoose an option:\n1 - capture face images\n2 - update database labels\n3 - delete database entries\n4 - load recognition model (necessary if new images/persons were added to the database)\n5 - activate/deactivate sensor message gateway\n6 - get detections \n7 - capture face images and add synthetic data\n \nq - Quit\n\n";
 		key = getch();
 		if (key == '1') addData(add_data_client, capture_image_client, finish_recording_client);//train(trainContinuousClient, trainCaptureSampleClient);
 		else if (key == '2') updateData(update_data_client);//recognize(recognizeClient);
@@ -391,8 +482,8 @@ int main(int argc, char** argv)
 		else if (key == '4') loadRecognitionModel(load_model_client);//show(showClient, 0);
 		else if (key == '5') activateSensorMessageGateway(sensor_message_gateway_open_client, sensor_message_gateway_close_client);//show(showClient, 1);
 		else if (key == '6') getDetections(get_detections_client);
+		else if (key == '7') addSynthData(add_synth_data_client, capture_image_client, finish_recording_client);//train(trainContinuousClient, trainCaptureSampleClient);
 	}while(key != 'q');
-
 
 	return 0;
 }

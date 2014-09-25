@@ -62,9 +62,9 @@ void FaceNormalizer::init(std::string i_classifier_directory,std::string i_stora
   if (config_.align)
   {
     std::string eye_r_path,eye_path,eye_l_path,nose_path,mouth_path;
-    eye_r_path=    classifier_directory_+ "haarcascades/haarcascade_mcs_righteye.xml";
-    eye_l_path=    classifier_directory_+ "haarcascades/haarcascade_mcs_lefteye.xml";
-    nose_path=     classifier_directory_+ "haarcascades/haarcascade_mcs_nose.xml";
+    eye_r_path=    classifier_directory_+ "haarcascade_mcs_righteye.xml";
+    eye_l_path=    classifier_directory_+ "haarcascade_mcs_lefteye.xml";
+    nose_path=     classifier_directory_+ "haarcascade_mcs_nose.xml";
 
     eye_r_cascade_=(CvHaarClassifierCascade*) cvLoad(eye_r_path.c_str(),0,0,0);
     eye_r_storage_=cvCreateMemStorage(0);
@@ -114,59 +114,69 @@ bool FaceNormalizer::isolateFace(cv::Mat& RGB,cv::Mat& XYZ)
   return true;
 }
 
-bool FaceNormalizer::recordFace(cv::Mat&RGB,cv::Mat& XYZ)
+bool FaceNormalizer::recordFace(cv::Mat& RGB,cv::Mat& XYZ)
 {
   std::string filepath=storage_directory_;
   filepath.append("scene");
   save_scene(RGB,XYZ,filepath);
 }
 
-bool FaceNormalizer::synthFace(cv::Mat &RGB,cv::Mat& XYZ, cv::Size& norm_size, std::string training_path, int& img_count, int& step_size, int& step_no)
+bool FaceNormalizer::synthFace(cv::Mat &RGB, cv::Mat& XYZ, cv::Size& norm_size, std::vector<cv::Mat>& images, std::vector<cv::Mat>& depthmaps, float& step_size, int& step_no)
 {
-	//isolate face?
-	//isolateFace();
-	//cv::imshow ("received img", RGB);
-	//cv::waitKey();
-	bool valid = true; // Flag only returned true if all steps have been completed successfully
+	std::cout << " ADDING SYNTH FACES - FACE NORMALIZER" << std::endl;
 
-	//epoch_ctr_++;
-	//geometric normalization
-	if(config_.align)
+	cv::Mat GRAY,GRAY2;
+	cv::cvtColor(RGB,GRAY,CV_RGB2GRAY);
+
+	//trim image border if width and or height not even
+	if( GRAY.rows & (2) != 0 )
 	{
-		cv::Mat GRAY,GRAY2;
-		cv::cvtColor(RGB,GRAY,CV_RGB2GRAY);
-		//cv::imshow ("img after gray", GRAY);
-		// remove background
-		//isolateFace(GRAY,XYZ);
-
-		//adjust img and XYZ mat to size which their normalized versions will have
-		//TODO
-		//input images are currently square, so this could be done in one step
-		// - any plans to change from square head/face rectangles?
-		if( GRAY.rows&(2) != 0 )
-		{
-			XYZ=XYZ(cv::Rect(0,0,XYZ.cols,XYZ.rows-1));
-			GRAY=GRAY(cv::Rect(0,0,GRAY.cols,GRAY.rows-1));
-		}
-		if( GRAY.cols&(2) != 0 )
-		{
-			XYZ=XYZ(cv::Rect(0,0,XYZ.cols-1,XYZ.rows));
-			GRAY=GRAY(cv::Rect(0,0,GRAY.cols-1,GRAY.rows));
-		}
-		//dont normalize here, normalization works on histograms and is used for face images for best end-results.
-		//normalize_radiometry(GRAY);
-		//cv::imshow ("gray after radiometry", GRAY);
-		//cv::waitKey();
-
-		if(!synth_head_poses(GRAY,XYZ,training_path,img_count,norm_size,step_size,step_no))
-		{
-			std::cout<< "synth failed \n";
-			return false;
-		}
-		//std::cout << "synth succesful, new img count: " << img_count << "\n";
-		valid = true;
+		XYZ=XYZ(cv::Rect(0,0,XYZ.cols,XYZ.rows-1));
+		GRAY=GRAY(cv::Rect(0,0,GRAY.cols,GRAY.rows-1));
 	}
-	return valid;
+	if( GRAY.cols & (2) != 0 )
+	{
+		XYZ=XYZ(cv::Rect(0,0,XYZ.cols-1,XYZ.rows));
+		GRAY=GRAY(cv::Rect(0,0,GRAY.cols-1,GRAY.rows));
+	}
+
+	//rotate head for additional images
+	if(!synth_head_poses(GRAY,XYZ,norm_size,images, depthmaps, step_size,step_no))
+	{
+		std::cout<< "synth failed \n";
+		return false;
+	}
+	std::cout << "returning true in faceSynth" << std::endl;
+	return true;
+
+}
+
+bool FaceNormalizer::synthFace(cv::Mat &RGB,cv::Mat& XYZ, cv::Size& norm_size, std::string training_path, int& img_count, float& step_size, int& step_no, std::vector<int>& imgs_per_axis)
+{
+
+	cv::Mat GRAY,GRAY2;
+	cv::cvtColor(RGB,GRAY,CV_RGB2GRAY);
+
+	//trim image border if width and or height not even
+	if( GRAY.rows & (2) != 0 )
+	{
+		XYZ=XYZ(cv::Rect(0,0,XYZ.cols,XYZ.rows-1));
+		GRAY=GRAY(cv::Rect(0,0,GRAY.cols,GRAY.rows-1));
+	}
+	if( GRAY.cols & (2) != 0 )
+	{
+		XYZ=XYZ(cv::Rect(0,0,XYZ.cols-1,XYZ.rows));
+		GRAY=GRAY(cv::Rect(0,0,GRAY.cols-1,GRAY.rows));
+	}
+
+	//rotate head for additional images
+	if(!synth_head_poses(GRAY,XYZ,training_path,img_count,norm_size,step_size,step_no, imgs_per_axis))
+	{
+		std::cout<< "synth failed \n";
+		return false;
+	}
+
+	return true;
 }
 
 bool FaceNormalizer::normalizeFace( cv::Mat& RGB, cv::Mat& XYZ, cv::Size& norm_size, cv::Mat& DM)
@@ -404,7 +414,320 @@ void FaceNormalizer::GammaDCT(cv::Mat& input_img)
   }
 }
 
-bool FaceNormalizer::synth_head_poses(cv::Mat& img,cv::Mat& depth, std::string training_path, int& img_count,cv::Size& norm_size, int& step_size, int& step_no)
+bool FaceNormalizer::synth_head_poses(cv::Mat& img,cv::Mat& depth, cv::Size& norm_size, std::vector<cv::Mat>& images, std::vector<cv::Mat>& depthmaps, float& step_size, int& step_no)
+{
+	std::cout << " ADDING SYNTH FACES - FACE NORMALIZER" << std::endl;
+	//variables for checkp
+	int src_valid_pts=0;
+	int min_valid_pts;
+
+	//variables for face detection
+	int img_count=0; 							// Save number of images added from source, for user information only
+	double faces_increase_search_scale = 1.1;		// The factor by which the search window is scaled between the subsequent scans
+	int faces_drop_groups = 2;					// Minimum number (minus 1) of neighbor rectangles that makes up an object.
+	int faces_min_search_scale_x = 20;			// Minimum search scale x
+	int faces_min_search_scale_y = 20;			// Minimum search scale y
+	//std::string faceCascadePath = ros::package::getPath("cob_people_detection") + "/common/files/" + "haarcascades/haarcascade_frontalface_alt2.xml";
+	std::string faceCascadePath = "/home/stefan/git/cob_people_perception/cob_people_detection/common/files/haarcascades/haarcascade_frontalface_alt2.xml";
+	CvHaarClassifierCascade* m_face_cascade = (CvHaarClassifierCascade*)cvLoad(faceCascadePath.c_str(), 0, 0, 0 );	//"ConfigurationFiles/haarcascades/haarcascade_frontalface_alt2.xml", 0, 0, 0 );
+	CvMemStorage* m_storage = cvCreateMemStorage(0);
+	IplImage imgPtr = (IplImage)img;
+
+	//add source img if face is found in it with required face.
+	//face image is normalized and resized as in normalizeFace
+	CvSeq* faces = cvHaarDetectObjects(&imgPtr,	m_face_cascade,	m_storage, faces_increase_search_scale, faces_drop_groups, CV_HAAR_DO_CANNY_PRUNING, cv::Size(faces_min_search_scale_x, faces_min_search_scale_y));
+	if (faces->total ==1)
+	{
+		cv::Rect* face = (cv::Rect*)cvGetSeqElem(faces, 0);
+		//exclude faces that are too small for the head bounding box
+		if (face->width > 0.4*img.cols && face->height > 0.4*img.rows)
+		{
+			cv::Mat synth_img;
+			img(cv::Rect(face->x,face->y, face->width,face->height)).copyTo(synth_img);
+			cv::Mat synth_dm = depth(cv::Rect(face->x,face->y, face->width,face->height));
+			normalize_radiometry(synth_img);
+			//TODO
+			//test resizing vs roi around nose used in other functions of face_normalizer
+			// DONE. Using ROI has negative influence on recognition.
+			cv::resize(synth_img,synth_img,norm_size,0,0);
+			cv::resize(synth_dm,synth_dm,norm_size,0,0);
+			//save resulting image and depth mat in cv::Mat Vector
+			images.push_back(synth_img);
+			depthmaps.push_back(synth_dm);
+			img_count++;
+			//std::cout << "added source img and depth\n";
+		}
+	}
+
+	Eigen::Vector3f x_new,y_new,z_new, origin,temp,lefteye,nose,righteye,eye_middle;
+	int img_added=0;
+	int img_added_on_axis=1;
+	//use face features to determine axis of rotation?
+	if(config_.align)
+	{
+		// feature detection runs better on a normalized image
+		cv::Mat norm_head_img;
+		img.copyTo(norm_head_img);
+		normalize_radiometry(norm_head_img);
+
+		// detect features
+		if(!features_from_color(norm_head_img))
+		{
+			std::cout <<"features in color missing"<<std::endl;
+			return false;
+		}
+		if(!features_from_depth(depth))
+		{
+			std::cout <<"features in depth missing"<<std::endl;
+			return false;
+		}
+
+		nose<<f_det_xyz_.nose.x,f_det_xyz_.nose.y,f_det_xyz_.nose.z;
+		lefteye<<f_det_xyz_.lefteye.x,f_det_xyz_.lefteye.y,f_det_xyz_.lefteye.z;
+		righteye<<f_det_xyz_.righteye.x,f_det_xyz_.righteye.y,f_det_xyz_.righteye.z;
+		eye_middle=lefteye+((righteye-lefteye)*0.5);
+
+		//TZ coordinates based on nose tip to middle of eyes vector
+		//x_new<<f_det_xyz_.righteye.x-f_det_xyz_.lefteye.x,f_det_xyz_.righteye.y-f_det_xyz_.lefteye.y,f_det_xyz_.righteye.z-f_det_xyz_.lefteye.z;
+		//temp<<f_det_xyz_.nose.x-eye_middle[0],f_det_xyz_.nose.y-eye_middle[1],(f_det_xyz_.nose.z-eye_middle[2]);
+		//z_new=x_new.cross(temp);
+		//x_new.normalize();
+		//z_new.normalize();
+		//y_new=x_new.cross(z_new);
+
+		//SS coordinates, z vector direction = vector to nose
+		z_new<<nose[0],nose[1],nose[2];
+		z_new.normalize();
+		//vectors of plane
+		Eigen::Vector3f x_plane, y_plane,eye_to_eye,temporary;;
+		x_plane<<nose[2],nose[0],-nose[1];
+		y_plane=z_new.cross(x_plane);
+		//distance of plane to origin
+		double d = nose[0]*nose[0]+nose[1]*nose[1]+nose[2]*nose[2];
+		d = sqrt(d);
+
+		//eye-to-eye vector
+		eye_to_eye<<f_det_xyz_.righteye.x-f_det_xyz_.lefteye.x,f_det_xyz_.righteye.y-f_det_xyz_.lefteye.y,f_det_xyz_.righteye.z-f_det_xyz_.lefteye.z;
+		//move vector to start from nose
+		eye_to_eye += nose;
+
+		d = eye_to_eye[0]*z_new[0]+eye_to_eye[1]*z_new[1]+eye_to_eye[2]*z_new[2]- d;
+		//Point on Plane from distance and z_new
+		temporary = eye_to_eye + d * z_new;
+		//new x vector = nose to point on plane
+		x_new = nose - temporary;
+		x_new.normalize();
+
+		//perpendicular 3rd vector for y
+		y_new = x_new.cross(z_new);
+		y_new.normalize();
+
+		//show base vectors
+		//std::cout << "x_plane: " << x_plane << "\n eye_to_eye + nose: " << eye_to_eye << "\n distance of vector end to plane: " << d << "\n";
+		//std::cout << "new base vectors: \n z " << z_new << "\n y " << y_new << "\n x " << x_new << "\n";
+
+		if(y_new[1]<0) y_new*=-1;
+		origin=nose;
+	}
+	else
+	{
+		//camera mat is only initialized if config_align was true, add it here
+	    cv::Vec2f focal_length;
+	    cv::Point2f pp;
+	    focal_length[0]=524.90160178307269 ;
+	    focal_length[1]=525.85226379335393;
+	    pp.x=312.13543361773458;
+	    pp.y=254.73474482242005;
+	    cam_mat_=(cv::Mat_<double>(3,3) << focal_length[0] , 0.0 , pp.x  , 0.0 , focal_length[1] , pp.y  , 0.0 , 0.0 , 1);
+	    dist_coeffs_=(cv::Mat_<double>(1,5) << 0.25852454045259377, -0.88621162461930914, 0.0012346117737001144, 0.00036377459304633028, 1.0422813597203011);
+
+		x_new << 1.0,0.0,0.0;
+		y_new << 0.0,1.0,0.0;
+		z_new << 0.0,0.0,1.0;
+		//use point in middle of picture instead of detected nose for translation to origin
+		nose[0] = depth.at<cv::Vec3f>(depth.rows/2,depth.rows/2)[0];
+		nose[1] = depth.at<cv::Vec3f>(depth.rows/2,depth.rows/2)[1];
+		nose[2] = depth.at<cv::Vec3f>(depth.rows/2,depth.rows/2)[2];
+	}
+
+	Eigen::Affine3f T_norm, T_rot;
+	T_norm= pcl::getTransformation(float(-nose[0]), float(-nose[1]), float(-nose[2]), 0.0, 0.0, 0.0);
+	// viewing offset of normalized perspective
+	double view_offset=nose[2];
+	view_offset = nose[2];
+	Eigen::Translation<float,3> translation=Eigen::Translation<float,3>(0, 0, view_offset);
+
+	Eigen::AngleAxis<float> alpha;
+
+	cv::Mat dmres,imgres;
+	cv::Rect roi;
+	cv::Mat workmat=cv::Mat(depth.rows,depth.cols,CV_32FC3);
+
+	//number and distance between poses
+	int N=step_no*8;
+	float rot_step = step_size;
+
+	/*
+	//find number of valid xyz points in src
+	for (int j=0; j<depth.rows;j++)
+	{
+		for(int k=0; k<depth.cols;k++)
+		{
+			if (depth.at<cv::Vec3f>(j,k)[2] >0) src_valid_pts++;
+		}
+	}
+	min_valid_pts = 0.5* src_valid_pts;
+	std::cout << "valid pts in src before rotation: " << src_valid_pts << std::endl;
+	std::cout << "min surviving points for rotated picture to be considered: " << min_valid_pts;
+	*/
+	std::vector<int> imgs_per_axis;
+	if (N>0)
+	{
+		for(int i=0;i<N;i++)
+		{
+			//std::cout << "synth pose no: " << i ;
+			Eigen::Vector3f xy_new = x_new+y_new;
+			Eigen::Vector3f yx_new = x_new-y_new;
+
+			//rotate head down
+			if(i>=0&&i<N/8)
+			{
+				alpha=Eigen::AngleAxis<float>(((float)(i+1)*rot_step)*M_PI, x_new);
+			}
+			//rotate head down-right
+			else if(i>=N/8&&i<2*N/8)
+			{
+				if (imgs_per_axis.size()%8 < 1)
+				{
+					imgs_per_axis.push_back(img_added_on_axis);
+					img_added_on_axis=0;
+				}
+				alpha=Eigen::AngleAxis<float>((((float)(i+1)-N/8)*rot_step)*M_PI, xy_new);
+			}
+			//rotate head right
+			else if(i>=2*N/8&&i<3*N/8)
+			{
+				if (imgs_per_axis.size()%8 < 2)
+				{
+					imgs_per_axis.push_back(img_added_on_axis);
+					img_added_on_axis=0;
+				}
+				alpha=Eigen::AngleAxis<float>((((float)(i+1)-2*N/8)*rot_step)*M_PI, y_new);
+			}
+			//rotate head up-right
+			else if(i>=3*N/8&&i<4*N/8)
+			{
+				if (imgs_per_axis.size()%8 < 3)
+				{
+					imgs_per_axis.push_back(img_added_on_axis);
+					img_added_on_axis=0;
+				}
+				alpha=Eigen::AngleAxis<float>((((float)(i+1)-3*N/8)*-rot_step)*M_PI, yx_new);
+			}
+			//rotate head up
+			else if(i>=4*N/8&&i<5*N/8)
+			{
+				if (imgs_per_axis.size()%8 < 4)
+				{
+					imgs_per_axis.push_back(img_added_on_axis);
+					img_added_on_axis=0;
+				}
+				alpha=Eigen::AngleAxis<float>((((float)(i+1)-4*N/8)*-rot_step)*M_PI, x_new);
+			}
+			//rotate head up-left
+			else if(i>=5*N/8&&i<6*N/8)
+			{
+				if (imgs_per_axis.size()%8 < 5)
+				{
+					imgs_per_axis.push_back(img_added_on_axis);
+					img_added_on_axis=0;
+				}
+				alpha=Eigen::AngleAxis<float>((((float)(i+1)-5*N/8)*-rot_step)*M_PI, xy_new);
+			}
+			//rotate head left
+			else if(i>=6*N/8&&i<7*N/8)
+			{
+				if (imgs_per_axis.size()%8 < 6)
+				{
+					imgs_per_axis.push_back(img_added_on_axis);
+					img_added_on_axis=0;
+				}
+				alpha=Eigen::AngleAxis<float>((((float)(i+1)-6*N/8)*-rot_step)*M_PI, y_new);
+			}
+			//rotate head down-left
+			else if(i>=7*N/8&&i<N)
+			{
+				if (imgs_per_axis.size()%8 < 7)
+				{
+					imgs_per_axis.push_back(img_added_on_axis);
+					img_added_on_axis=0;
+				}
+				alpha=Eigen::AngleAxis<float> ((((float)(i+1)-7*N/8)*rot_step)*M_PI, yx_new);
+			}
+
+
+			// ----- artificial head pose rotation
+			T_rot.setIdentity();
+			T_rot=alpha*T_rot;
+
+			dmres=cv::Mat::zeros(480,640,CV_32FC3);
+			if(img.channels()==3)imgres=cv::Mat::zeros(480,640,CV_8UC3);
+			if(img.channels()==1)imgres=cv::Mat::zeros(480,640,CV_8UC1);
+
+			depth.copyTo(workmat);
+			cv::Vec3f* ptr=workmat.ptr<cv::Vec3f>(0,0);
+			Eigen::Vector3f pt;
+
+			for(int j=0;j<img.total();j++)
+			{
+				pt<<(*ptr)[0],(*ptr)[1],(*ptr)[2];
+				pt=T_norm*pt;
+				pt=T_rot*pt;
+				pt=translation*pt;
+
+				(*ptr)[0]=pt[0];
+				(*ptr)[1]=pt[1];
+				(*ptr)[2]=pt[2];
+				ptr++;
+			}
+
+			min_valid_pts = 100;
+			//detect face in rotated head image.
+			//normalize detections of sufficient size as in normalizeFace
+			if (projectPointCloudSynth(img,workmat,imgres,dmres,min_valid_pts))
+			{
+				IplImage imgPtr = (IplImage)imgres;
+				CvSeq* faces = cvHaarDetectObjects(&imgPtr,	m_face_cascade,	m_storage, faces_increase_search_scale, faces_drop_groups, CV_HAAR_DO_CANNY_PRUNING, cv::Size(faces_min_search_scale_x, faces_min_search_scale_y));
+				//std::cout << "Face in synth image: " << faces->total << std::endl;
+				if (faces->total ==1)
+				{
+					cv::Rect* face = (cv::Rect*)cvGetSeqElem(faces, 0);
+					//exclude faces that are too small for the head bounding box
+					if (face->width > 0.4*img.cols && face->height > 0.4*img.rows)
+					{
+						cv::Mat synth_img=imgres(cv::Rect(face->x,face->y, face->width,face->height));
+						cv::Mat synth_dm = dmres(cv::Rect(face->x,face->y, face->width,face->height));
+						normalize_radiometry(synth_img);
+						cv::resize(synth_img,synth_img,norm_size,0,0);
+						cv::resize(synth_dm,synth_dm,norm_size,0,0);
+						//save resulting image and depth mat
+						images.push_back(synth_img);
+						depthmaps.push_back(synth_dm);
+						img_added++;
+						img_added_on_axis++;
+					}
+				}
+			}
+		}
+		imgs_per_axis.push_back(img_added_on_axis);
+	}
+	std::cout<< "images added through rotation: " << img_added << std::endl;
+	img_count = img_count+img_added;
+
+	return true;
+}
+
+bool FaceNormalizer::synth_head_poses(cv::Mat& img,cv::Mat& depth, std::string training_path, int& img_count,cv::Size& norm_size, float& step_size, int& step_no, std::vector<int>& imgs_per_axis)
 {
 	//variables for face detection
 	double faces_increase_search_scale = 1.1;		// The factor by which the search window is scaled between the subsequent scans
@@ -452,74 +775,96 @@ bool FaceNormalizer::synth_head_poses(cv::Mat& img,cv::Mat& depth, std::string t
 		}
 	}
 
-	// feature detection runs better on a normalized image
-	cv::Mat norm_head_img;
-	img.copyTo(norm_head_img);
-	normalize_radiometry(norm_head_img);
-
-	// detect features
-	if(!features_from_color(norm_head_img))
-	{
-		std::cout <<"features in color missing"<<std::endl;
-		return false;
-	}
-	if(!features_from_depth(depth))
-	{
-		std::cout <<"features in depth missing"<<std::endl;
-		return false;
-	}
+	Eigen::Vector3f x_new,y_new,z_new, origin,temp,lefteye,nose,righteye,eye_middle;
 	int img_added=0;
+	int img_added_on_axis=1;
+	//use face features to determine axis of rotation?
+	if(config_.align)
+	{
+		// feature detection runs better on a normalized image
+		cv::Mat norm_head_img;
+		img.copyTo(norm_head_img);
+		normalize_radiometry(norm_head_img);
 
-	Eigen::Vector3f temp,x_new,y_new,z_new,lefteye,nose,righteye,eye_middle;
+		// detect features
+		if(!features_from_color(norm_head_img))
+		{
+			std::cout <<"features in color missing"<<std::endl;
+			return false;
+		}
+		if(!features_from_depth(depth))
+		{
+			std::cout <<"features in depth missing"<<std::endl;
+			return false;
+		}
 
-	nose<<f_det_xyz_.nose.x,f_det_xyz_.nose.y,f_det_xyz_.nose.z;
-	lefteye<<f_det_xyz_.lefteye.x,f_det_xyz_.lefteye.y,f_det_xyz_.lefteye.z;
-	righteye<<f_det_xyz_.righteye.x,f_det_xyz_.righteye.y,f_det_xyz_.righteye.z;
-	eye_middle=lefteye+((righteye-lefteye)*0.5);
+		nose<<f_det_xyz_.nose.x,f_det_xyz_.nose.y,f_det_xyz_.nose.z;
+		lefteye<<f_det_xyz_.lefteye.x,f_det_xyz_.lefteye.y,f_det_xyz_.lefteye.z;
+		righteye<<f_det_xyz_.righteye.x,f_det_xyz_.righteye.y,f_det_xyz_.righteye.z;
+		eye_middle=lefteye+((righteye-lefteye)*0.5);
 
-	//TZ coordinates based on nose tip to middle of eyes vector
-	//x_new<<f_det_xyz_.righteye.x-f_det_xyz_.lefteye.x,f_det_xyz_.righteye.y-f_det_xyz_.lefteye.y,f_det_xyz_.righteye.z-f_det_xyz_.lefteye.z;
-	//temp<<f_det_xyz_.nose.x-eye_middle[0],f_det_xyz_.nose.y-eye_middle[1],(f_det_xyz_.nose.z-eye_middle[2]);
-	//z_new=x_new.cross(temp);
-	//x_new.normalize();
-	//z_new.normalize();
-	//y_new=x_new.cross(z_new);
+		//TZ coordinates based on nose tip to middle of eyes vector
+		//x_new<<f_det_xyz_.righteye.x-f_det_xyz_.lefteye.x,f_det_xyz_.righteye.y-f_det_xyz_.lefteye.y,f_det_xyz_.righteye.z-f_det_xyz_.lefteye.z;
+		//temp<<f_det_xyz_.nose.x-eye_middle[0],f_det_xyz_.nose.y-eye_middle[1],(f_det_xyz_.nose.z-eye_middle[2]);
+		//z_new=x_new.cross(temp);
+		//x_new.normalize();
+		//z_new.normalize();
+		//y_new=x_new.cross(z_new);
 
-	//SS coordinates, z vector direction = vector to nose
-	z_new<<nose[0],nose[1],nose[2];
-	z_new.normalize();
-	//vectors of plane
-	Eigen::Vector3f x_plane, y_plane,eye_to_eye,temporary;;
-	x_plane<<nose[2],nose[0],-nose[1];
-	y_plane=z_new.cross(x_plane);
-	//distance of plane to origin
-	double d = nose[0]*nose[0]+nose[1]*nose[1]+nose[2]*nose[2];
-	d = sqrt(d);
+		//SS coordinates, z vector direction = vector to nose
+		z_new<<nose[0],nose[1],nose[2];
+		z_new.normalize();
+		//vectors of plane
+		Eigen::Vector3f x_plane, y_plane,eye_to_eye,temporary;;
+		x_plane<<nose[2],nose[0],-nose[1];
+		y_plane=z_new.cross(x_plane);
+		//distance of plane to origin
+		double d = nose[0]*nose[0]+nose[1]*nose[1]+nose[2]*nose[2];
+		d = sqrt(d);
 
-	//eye-to-eye vector
-	eye_to_eye<<f_det_xyz_.righteye.x-f_det_xyz_.lefteye.x,f_det_xyz_.righteye.y-f_det_xyz_.lefteye.y,f_det_xyz_.righteye.z-f_det_xyz_.lefteye.z;
-	//move vector to start from nose
-	eye_to_eye += nose;
+		//eye-to-eye vector
+		eye_to_eye<<f_det_xyz_.righteye.x-f_det_xyz_.lefteye.x,f_det_xyz_.righteye.y-f_det_xyz_.lefteye.y,f_det_xyz_.righteye.z-f_det_xyz_.lefteye.z;
+		//move vector to start from nose
+		eye_to_eye += nose;
 
-	d = eye_to_eye[0]*z_new[0]+eye_to_eye[1]*z_new[1]+eye_to_eye[2]*z_new[2]- d;
-	//Point on Plane from distance and z_new
-	temporary = eye_to_eye + d * z_new;
-	//new x vector = nose to point on plane
-	x_new = nose - temporary;
-	x_new.normalize();
+		d = eye_to_eye[0]*z_new[0]+eye_to_eye[1]*z_new[1]+eye_to_eye[2]*z_new[2]- d;
+		//Point on Plane from distance and z_new
+		temporary = eye_to_eye + d * z_new;
+		//new x vector = nose to point on plane
+		x_new = nose - temporary;
+		x_new.normalize();
 
-	//perpendicular 3rd vector for y
-	y_new = x_new.cross(z_new);
-	y_new.normalize();
+		//perpendicular 3rd vector for y
+		y_new = x_new.cross(z_new);
+		y_new.normalize();
 
-	//show base vectors...
-	//std::cout << "x_plane: " << x_plane << "\n eye_to_eye + nose: " << eye_to_eye << "\n distance of vector end to plane: " << d << "\n";
-	//std::cout << "new base vectors: \n z " << z_new << "\n y " << y_new << "\n x " << x_new << "\n";
+		//show base vectors...
+		//std::cout << "x_plane: " << x_plane << "\n eye_to_eye + nose: " << eye_to_eye << "\n distance of vector end to plane: " << d << "\n";
+		//std::cout << "new base vectors: \n z " << z_new << "\n y " << y_new << "\n x " << x_new << "\n";
 
-	if(y_new[1]<0) y_new*=-1;
+		if(y_new[1]<0) y_new*=-1;
+		origin=nose;
+	}
+	else
+	{
+		//camera mat is only initialized if config_align was true, add it here
+	    cv::Vec2f focal_length;
+	    cv::Point2f pp;
+	    focal_length[0]=524.90160178307269 ;
+	    focal_length[1]=525.85226379335393;
+	    pp.x=312.13543361773458;
+	    pp.y=254.73474482242005;
+	    cam_mat_=(cv::Mat_<double>(3,3) << focal_length[0] , 0.0 , pp.x  , 0.0 , focal_length[1] , pp.y  , 0.0 , 0.0 , 1);
+	    dist_coeffs_=(cv::Mat_<double>(1,5) << 0.25852454045259377, -0.88621162461930914, 0.0012346117737001144, 0.00036377459304633028, 1.0422813597203011);
 
-	Eigen::Vector3f origin;
-	origin=nose;
+		x_new << 1.0,0.0,0.0;
+		y_new << 0.0,1.0,0.0;
+		z_new << 0.0,0.0,1.0;
+		//use point in middle of picture instead of detected nose for translation to origin
+		nose[0] = depth.at<cv::Vec3f>(depth.rows/2,depth.rows/2)[0];
+		nose[1] = depth.at<cv::Vec3f>(depth.rows/2,depth.rows/2)[1];
+		nose[2] = depth.at<cv::Vec3f>(depth.rows/2,depth.rows/2)[2];
+	}
 
 	Eigen::Affine3f T_norm, T_rot;
 	//pcl::getTransformationFromTwoUnitVectorsAndOrigin(y_new,z_new,origin,T_norm);
@@ -540,22 +885,110 @@ bool FaceNormalizer::synth_head_poses(cv::Mat& img,cv::Mat& depth, std::string t
 	float rot_step = step_size;
 	//std::cout<<"Synthetic POSES"<<std::endl;
 
-	if (N>0)
+	//find number of valid points in src
+	int src_valid_pts=0;
+	int min_valid_pts;
+	for (int j=0; j<depth.rows;j++)
+	{
+		for(int k=0; k<depth.cols;k++)
 		{
+			if (depth.at<cv::Vec3f>(j,k)[2] >0) src_valid_pts++;
+		}
+	}
+	min_valid_pts = 0.5* src_valid_pts;
+	std::cout << "valid pts in src before rotation: " << src_valid_pts << std::endl;
+	std::cout << "min surviving points for rotated picture to be considered: " << min_valid_pts;
+
+	if (N>0)
+	{
 		for(int i=0;i<N;i++)
 		{
 			//std::cout << "synth pose no: " << i ;
 			Eigen::Vector3f xy_new = x_new+y_new;
 			Eigen::Vector3f yx_new = x_new-y_new;
-			if(i>=0&&i<N/8)alpha=Eigen::AngleAxis<float>(((float)(i+1)*rot_step)*M_PI, x_new);
-			else if(i>=N/8&&i<2*N/8)alpha=Eigen::AngleAxis<float>((((float)(i+1)-N/8)*rot_step)*M_PI, y_new);
-			else if(i>=2*N/8&&i<=3*N/8)alpha=Eigen::AngleAxis<float> ((((float)(i+1)-2*N/8)*rot_step)*M_PI, xy_new);
-			else if(i>=3*N/8&&i<=4*N/8)alpha=Eigen::AngleAxis<float> ((((float)(i+1)-3*N/8)*rot_step)*M_PI, yx_new);
-			else if(i>=4*N/8&&i<=5*N/8)alpha=Eigen::AngleAxis<float> ((((float)(i+1)-4*N/8)*-rot_step)*M_PI, x_new);
-			else if(i>=5*N/8&&i<=6*N/8)alpha=Eigen::AngleAxis<float> ((((float)(i+1)-5*N/8)*-rot_step)*M_PI, y_new);
-			else if(i>=6*N/8&&i<=7*N/8)alpha=Eigen::AngleAxis<float> ((((float)(i+1)-6*N/8)*-rot_step)*M_PI, xy_new);
-			else if(i>=7*N/8&&i<=N)alpha=Eigen::AngleAxis<float> ((((float)(i+1)-7*N/8)*-rot_step)*M_PI, yx_new);
 
+			//rotate head down
+			if(i>=0&&i<N/8)
+			{
+				alpha=Eigen::AngleAxis<float>(((float)(i+1)*rot_step)*M_PI, x_new);
+			}
+			//rotate head down-right
+			else if(i>=N/8&&i<2*N/8)
+			{
+				if (imgs_per_axis.size()%8 < 1)
+				{
+					imgs_per_axis.push_back(img_added_on_axis);
+					//std::cout << "changed axis, pushed back entry: " << img_added_on_axis <<std::endl;
+					img_added_on_axis=0;
+				}
+				alpha=Eigen::AngleAxis<float>((((float)(i+1)-N/8)*rot_step)*M_PI, xy_new);
+			}
+			//rotate head right
+			else if(i>=2*N/8&&i<3*N/8)
+			{
+				if (imgs_per_axis.size()%8 < 2)
+				{
+					imgs_per_axis.push_back(img_added_on_axis);
+					//std::cout << "changed axis, pushed back entry: " << img_added_on_axis <<std::endl;
+					img_added_on_axis=0;
+				}
+				alpha=Eigen::AngleAxis<float>((((float)(i+1)-2*N/8)*rot_step)*M_PI, y_new);
+			}
+			//rotate head up-right
+			else if(i>=3*N/8&&i<4*N/8)
+			{
+				if (imgs_per_axis.size()%8 < 3)
+				{
+					imgs_per_axis.push_back(img_added_on_axis);
+					//std::cout << "changed axis, pushed back entry: " << img_added_on_axis <<std::endl;
+					img_added_on_axis=0;
+				}
+				alpha=Eigen::AngleAxis<float>((((float)(i+1)-3*N/8)*-rot_step)*M_PI, yx_new);
+			}
+			//rotate head up
+			else if(i>=4*N/8&&i<5*N/8)
+			{
+				if (imgs_per_axis.size()%8 < 4)
+				{
+					imgs_per_axis.push_back(img_added_on_axis);
+					//std::cout << "changed axis, pushed back entry: " << img_added_on_axis <<std::endl;
+					img_added_on_axis=0;
+				}
+				alpha=Eigen::AngleAxis<float>((((float)(i+1)-4*N/8)*-rot_step)*M_PI, x_new);
+			}
+			//rotate head up-left
+			else if(i>=5*N/8&&i<6*N/8)
+			{
+				if (imgs_per_axis.size()%8 < 5)
+				{
+					imgs_per_axis.push_back(img_added_on_axis);
+					//std::cout << "changed axis, pushed back entry: " << img_added_on_axis <<std::endl;
+					img_added_on_axis=0;
+				}
+				alpha=Eigen::AngleAxis<float>((((float)(i+1)-5*N/8)*-rot_step)*M_PI, xy_new);
+			}
+			//rotate head left
+			else if(i>=6*N/8&&i<7*N/8)
+			{
+				if (imgs_per_axis.size()%8 < 6)
+				{
+					imgs_per_axis.push_back(img_added_on_axis);
+					//std::cout << "changed axis, pushed back entry: " << img_added_on_axis <<std::endl;
+					img_added_on_axis=0;
+				}
+				alpha=Eigen::AngleAxis<float>((((float)(i+1)-6*N/8)*-rot_step)*M_PI, y_new);
+			}
+			//rotate head down-left
+			else if(i>=7*N/8&&i<N)
+			{
+				if (imgs_per_axis.size()%8 < 7)
+				{
+					imgs_per_axis.push_back(img_added_on_axis);
+					//std::cout << "changed axis, pushed back entry: " << img_added_on_axis <<std::endl;
+					img_added_on_axis=0;
+				}
+				alpha=Eigen::AngleAxis<float> ((((float)(i+1)-7*N/8)*rot_step)*M_PI, yx_new);
+			}
 			// ----- artificial head pose rotation
 			T_rot.setIdentity();
 			T_rot=alpha*T_rot;
@@ -568,6 +1001,9 @@ bool FaceNormalizer::synth_head_poses(cv::Mat& img,cv::Mat& depth, std::string t
 			cv::Vec3f* ptr=workmat.ptr<cv::Vec3f>(0,0);
 			Eigen::Vector3f pt;
 
+//			std::cout << "random point before and after rotation (65,65)";
+//			std::cout << depth.at<cv::Vec3f>(65,65)[0] << "," << depth.at<cv::Vec3f>(65,65)[1] << "," << depth.at<cv::Vec3f>(65,65)[2];
+//			std::cout << std::endl;
 			for(int j=0;j<img.total();j++)
 			{
 				pt<<(*ptr)[0],(*ptr)[1],(*ptr)[2];
@@ -580,8 +1016,10 @@ bool FaceNormalizer::synth_head_poses(cv::Mat& img,cv::Mat& depth, std::string t
 				(*ptr)[2]=pt[2];
 				ptr++;
 			}
-			//std::cout << "project pcl" << std::endl;
-			projectPointCloudSynth(img,workmat,imgres,dmres);
+//			std::cout << workmat.at<cv::Vec3f>(65,65)[0] << "," << workmat.at<cv::Vec3f>(65,65)[1] << "," << workmat.at<cv::Vec3f>(65,65)[2];
+//			std::cout << std::endl;
+//			std::cout << "project pcl" << std::endl;
+			//projectPointCloudSynth(img,workmat,imgres,dmres,min_valid_pts);
 
 			//TODO:
 			//confirm if created image is recognized as face? - DONE
@@ -594,15 +1032,14 @@ bool FaceNormalizer::synth_head_poses(cv::Mat& img,cv::Mat& depth, std::string t
 			//normalize detections of sufficient size as in normalizeFace
 			bool detect_face =true;
 			//std::cout << "detect face" << std::endl;
-			if (detect_face)
+			bool img_valid = projectPointCloudSynth(img,workmat,imgres,dmres,min_valid_pts);
+			if (img_valid && detect_face)
 			{
 				IplImage imgPtr = (IplImage)imgres;
-
 				CvSeq* faces = cvHaarDetectObjects(&imgPtr,	m_face_cascade,	m_storage, faces_increase_search_scale, faces_drop_groups, CV_HAAR_DO_CANNY_PRUNING, cv::Size(faces_min_search_scale_x, faces_min_search_scale_y));
 				//std::cout << "Face in synth image: " << faces->total << std::endl;
 				if (faces->total ==1)
 				{
-
 					cv::Rect* face = (cv::Rect*)cvGetSeqElem(faces, 0);
 					//exclude faces that are too small for the head bounding box
 					if (face->width > 0.4*img.cols && face->height > 0.4*img.rows)
@@ -625,6 +1062,7 @@ bool FaceNormalizer::synth_head_poses(cv::Mat& img,cv::Mat& depth, std::string t
 						fs << "depthmap" << synth_dm;
 						fs.release();
 						img_added++;
+						img_added_on_axis++;
 						//std::cout << "cut out face size: " << face_img.size() << std::endl;
 						//std::cout << face->height << "," << face->width<<","<<face->x<<","<<face->y <<std::endl;
 						//cv::imshow("Face Detection",face_img);
@@ -633,10 +1071,14 @@ bool FaceNormalizer::synth_head_poses(cv::Mat& img,cv::Mat& depth, std::string t
 				}
 			}
 		}
+		imgs_per_axis.push_back(img_added_on_axis);
 	}
 	img_count = img_count+img_added;
-	std::cout << "additional images created for training: " << img_added << std::endl;
-	std::cout << "new image total: " << img_count << std::endl;
+
+	//std::cout << "additional images created for training: " << img_added << std::endl;
+	//std::cout << "new image total: " << img_count << std::endl;
+	//std::cout << "image distribution on axis: "<< std::endl;
+	//std::cout << imgs_per_axis[0] << ", "<< imgs_per_axis[1] << ", "<< imgs_per_axis[2] << ", "<< imgs_per_axis[3] << ", "<< imgs_per_axis[4] << ", "<< imgs_per_axis[5] << ", "<< imgs_per_axis[6] << ", "<< imgs_per_axis[7];
 	return true;
 }
 
@@ -792,11 +1234,11 @@ bool FaceNormalizer::projectPointCloud(cv::Mat& img, cv::Mat& depth, cv::Mat& im
 }
 // construct path to depth and color image data, read/load xml and bmp.
 
-bool FaceNormalizer::projectPointCloudSynth(cv::Mat& img, cv::Mat& depth, cv::Mat& img_res_fltr, cv::Mat& depth_res)
+bool FaceNormalizer::projectPointCloudSynth(cv::Mat& img, cv::Mat& depth, cv::Mat& img_res_fltr, cv::Mat& depth_res, int& min_valid_points)
 {
-	//std::cout << "received: " <<std::endl;
-	//std::cout << img.size() << std::endl;
-	//std::cout << depth.size() << std::endl;
+//	std::cout << "received: " <<std::endl;
+//	std::cout << img.size() << std::endl;
+//	std::cout << depth.size() << std::endl;
 	int channels=img.channels();
 
 	cv::Mat pc_xyz,pc_rgb;
@@ -814,7 +1256,9 @@ bool FaceNormalizer::projectPointCloudSynth(cv::Mat& img, cv::Mat& depth, cv::Ma
 	cv::Vec3f rot=cv::Vec3f(0.0,0.0,0.0);
 	cv::Vec3f trans=cv::Vec3f(0.0,0.0,0.0);
 	cv::Size sensor_size=cv::Size(640,480);
+
 	cv::projectPoints(pc_xyz,rot,trans,cam_mat_,dist_coeffs_,pc_proj);
+
 	cv::Vec3f* pc_ptr=pc_xyz.ptr<cv::Vec3f>(0,0);
 	cv::Vec2f* pc_proj_ptr=pc_proj.ptr<cv::Vec2f>(0,0);
 	int ty,tx;
@@ -842,7 +1286,11 @@ bool FaceNormalizer::projectPointCloudSynth(cv::Mat& img, cv::Mat& depth, cv::Ma
 			pc_proj_ptr++;
 			pc_ptr++;
 		}
-		//std::cout << "points on sensor added to proj map pairs: " << proj_map.size() << std::endl;
+		if (proj_map.size() < min_valid_points)
+		{
+			//std::cout << "dropping img for lack of points" << std::endl;
+			return false;
+		}
 		//assign values based on map
 		for(std::map <std::pair<int,int>,std::vector<std::pair<cv::Vec3f, unsigned char > > >::iterator it=proj_map.begin(); it!=proj_map.end(); ++it)
 		{
@@ -873,8 +1321,6 @@ bool FaceNormalizer::projectPointCloudSynth(cv::Mat& img, cv::Mat& depth, cv::Ma
 		bool filter = true;
 		if (filter)
 		{
-			// fill in gaps for points inside of head contour, remove straggler points from color and depth matrix
-
 			// blur to fill gaps in face image, erode and dilate to cut out any "straggler" points
 			// and other parts drifting away from the face for lack of depth point cohesion
 			int erosion_size = 2;
@@ -956,7 +1402,7 @@ bool FaceNormalizer::projectPointCloudSynth(cv::Mat& img, cv::Mat& depth, cv::Ma
 		}
 
 		cv::GaussianBlur(img_res_fltr,img_res_fltr, cv::Size(3,3),0,0);
-		cv::GaussianBlur(img_res_fltr,img_res_fltr, cv::Size(3,3),0,0);
+		//cv::GaussianBlur(img_res_fltr,img_res_fltr, cv::Size(3,3),0,0);
 
 		//cv::imshow("original", img);
 		//cv::imshow("eroded zwin", src_erode);
@@ -1038,24 +1484,23 @@ bool FaceNormalizer::read_scene_from_training(cv::Mat& depth,cv::Mat& color,std:
 	return true;
 }
 
-bool FaceNormalizer::frontFaceImage(cv::Mat& img,cv::Mat& depth, std::vector<float>& scores)
+bool FaceNormalizer::frontFaceImage(cv::Mat& img,cv::Mat& depth, float& score)
 {
 	//TODO
 	// adjust for looking at camera (face-plane perpendicular to detected Nose Vector?)
 	// detect features
 	if(!features_from_color(img))
 	{
-		scores.push_back(10);
+		std::cout << "Feature Detection failed for Image";
 		return false;
 	}
 	if(debug_)dump_features(img);
 	if(!features_from_depth(depth))
 	{
-		scores.push_back(10);
+		std::cout << "Feature Detection failed for Depth";
 		return false;
 	}
 	Eigen::Vector3f temp,x_new,y_new,z_new,lefteye,nose,righteye,eye_middle;
-	float score;
 
 	nose<<f_det_xyz_.nose.x,f_det_xyz_.nose.y,f_det_xyz_.nose.z;
 	lefteye<<f_det_xyz_.lefteye.x,f_det_xyz_.lefteye.y,f_det_xyz_.lefteye.z;
@@ -1065,7 +1510,7 @@ bool FaceNormalizer::frontFaceImage(cv::Mat& img,cv::Mat& depth, std::vector<flo
 	//std::cout << "Detected coordinates of features: \nNose: " << nose[0] << " " << nose[1] << " " << nose[2] << "\nLeft Eye " << lefteye[0] << " " << lefteye[1] << " " << lefteye[2] << "\nRight Eye " << righteye[0] << " " << righteye[1] << " " << righteye[2]<< "\nMiddle Eye " << eye_middle[0] << " " << eye_middle[1] << " " << eye_middle[2]<< "\n";
 	score = (lefteye[1]-righteye[1])*(lefteye[1]-righteye[1]) + (lefteye[2]-righteye[2])*(lefteye[2]-righteye[2]) + (eye_middle[0] - nose [0])*(eye_middle[0] - nose [0]);
 	score = sqrt(score);
-	scores.push_back(score);
+	return true;
 	// ^ score 0 for ideal image. eyes same height, same distance from camera and nose centered between eyes
 }
 

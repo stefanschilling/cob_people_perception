@@ -113,6 +113,8 @@ virtual unsigned long init(std::string data_directory, int norm_size,bool norm_i
 	/// @return Return code
   virtual unsigned long addFace(cv::Mat& color_image, cv::Mat& depth_image,cv::Rect& face_bounding_box,cv::Rect& head_bounding_box,std::string label, std::vector<cv::Mat>& face_images,std::vector<cv::Mat>& face_depthmaps);
 
+  virtual unsigned long addSynthFace(cv::Mat& color_image, cv::Mat& depth_image,cv::Rect& face_bounding_box,cv::Rect& head_bounding_box,std::string label, float& rotation_deg, int& rotation_step, std::vector<cv::Mat>& face_images,std::vector<cv::Mat>& face_depthmaps);
+
 	/// Updates the labels of a stored person.
 	/// @param old_label The label in the database which shall be replaced by the new label
 	/// @param new_label The new label
@@ -136,6 +138,12 @@ virtual unsigned long init(std::string data_directory, int norm_size,bool norm_i
 	/// @param face_images Vector containing all trained images
 	/// @return Return code
 	virtual unsigned long deleteFace(int index, std::vector<cv::Mat>& face_images, std::vector<cv::Mat>& face_depthmaps);
+
+	/// Generates a score based on the position of facial features in an img, score -> 0 for frontal images.
+	/// @param img The image to detect nose and eyes in
+	/// @param depth The xyz-matrix (pointcloud) to detect nose and eyes in
+	/// @return Return float score
+	float FaceFeatureOrientationScore(cv::Mat& img,cv::Mat& depth);
 
 	/// Saves the training data
 	/// @param face_images A vector containing all training images
