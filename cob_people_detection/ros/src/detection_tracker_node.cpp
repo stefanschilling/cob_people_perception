@@ -145,7 +145,10 @@ DetectionTrackerNode::DetectionTrackerNode(ros::NodeHandle nh)
 	std::cout << "fall_back_to_unknown_identification = " << fall_back_to_unknown_identification_ << "\n";
 	node_handle_.param("display_timing", display_timing_, false);
 	std::cout << "display_timing = " << display_timing_ << "\n";
-
+	node_handle_.param("track_with_image_matching", track_with_image_matching_, true);
+	std::cout << "track_with_image_matching = " << track_with_image_matching_ << "\n";
+	node_handle_.param("image_matching_max_cost", image_matching_max_cost_, 25);
+	std::cout << "image_matching_max_cost = " << image_matching_max_cost_ << "\n";
 
 	// subscribers
 	it_ = new image_transport::ImageTransport(node_handle_);
@@ -773,15 +776,14 @@ void DetectionTrackerNode::inputCallback(const cob_people_detection_msgs::Detect
 			for (unsigned int i=0; i<face_detection_indices.size(); i++)
 			{
 				// calculate and save image similarity separately, then add it to cost matrix.
-				//std::cout << "now comparing previous " << face_position_accumulator_[previous_det].label << " and " << face_position_msg_in->detections[face_detection_indices[i]].label << "\n";
-
-				//costs_matrix[previous_det][i] = 100*computeFacePositionDistance(face_position_accumulator_[previous_det], face_position_msg_in->detections[face_detection_indices[i]])
-				//																	+ 100*tracking_range_m_ * (face_position_msg_in->detections[face_detection_indices[i]].label.compare(face_position_accumulator_[previous_det].label)==0 ? 0 : 1);
-
-				costs_matrix_image[previous_det][i] = 100.0 - 100*computeFacePositionImageSimilarity(face_image_accumulator_[previous_det], face_image_msg_in->head_detections[i].color_image);
+				if (track_with_image_matching_)	costs_matrix_image[previous_det][i] = 100.0 - 100*computeFacePositionImageSimilarity(face_image_accumulator_[previous_det], face_image_msg_in->head_detections[i].color_image);
+				else costs_matrix_image[previous_det][i] = 0;
 				costs_matrix[previous_det][i] = 100*computeFacePositionDistance(face_position_accumulator_[previous_det], face_position_msg_in->detections[face_detection_indices[i]])
 																				+ 100*tracking_range_m_ * (face_position_msg_in->detections[face_detection_indices[i]].label.compare(face_position_accumulator_[previous_det].label)==0 ? 0 : 1)
 																				+ costs_matrix_image[previous_det][i];
+
+				//costs_matrix[previous_det][i] = 100*computeFacePositionDistance(face_position_accumulator_[previous_det], face_position_msg_in->detections[face_detection_indices[i]])
+				//																	+ 100*tracking_range_m_ * (face_position_msg_in->detections[face_detection_indices[i]].label.compare(face_position_accumulator_[previous_det].label)==0 ? 0 : 1);
 
 				//std::cout << "cost matrix result: "<< costs_matrix[previous_det][i] << "\n";
 				if (debug_)

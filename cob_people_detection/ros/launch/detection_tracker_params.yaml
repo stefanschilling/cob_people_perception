@@ -45,3 +45,11 @@ display_timing: false
 # use rosbag as data input / ignore timestamp
 # bool
 rosbag_mode: true
+
+# match images of new and previous detections to improve certainty of matching. Prevents tracking of previous detection transferring to false detections, but may break tracking for low ratios of framerate / speed of movement.
+# bool
+track_with_image_matching: true
+
+# image match is achieved through comparison of a histogram pyramid using CV_COMP_CORREL. Cost calculated as 100(1 - normalized sum of this comparison). Only matches with a matching cost of less than the value entered here will be considered.
+# int
+image_matching_max_cost: 25

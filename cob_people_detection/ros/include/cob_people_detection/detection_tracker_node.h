@@ -128,10 +128,10 @@ protected:
 	//rmb-ss
 	message_filters::Synchronizer<message_filters::sync_policies::ApproximateTime<cob_people_detection_msgs::DetectionArray, cob_people_detection_msgs::ColorDepthImageArray> >* sync_input_2a_;
 	message_filters::Subscriber<cob_people_detection_msgs::ColorDepthImageArray> face_image_subscriber_; ///< receives face image messages
-	std::vector<sensor_msgs::Image> face_image_accumulator_; // accumulates face images over time
-	std::vector<cob_people_detection_msgs::ColorDepthImage> face_image_array_accumulator_; // accumulates face images over time
-	std::vector<cob_people_detection_msgs::ColorDepthImageArray> face_image_array_accumulator2_; // accumulates face images over time
-	std::vector<cv::Mat> histogramvect_;
+	std::vector<sensor_msgs::Image> face_image_accumulator_; ///< accumulates face images over time
+	std::vector<cob_people_detection_msgs::ColorDepthImage> face_image_array_accumulator_; ///< accumulates face images over time
+	std::vector<cob_people_detection_msgs::ColorDepthImageArray> face_image_array_accumulator2_; ///< accumulates face images over time
+	std::vector<cv::Mat> histogramvect_; ///< vector to store histograms in for image matching
 	//end rmb-ss
 
 	ros::Publisher face_position_publisher_; ///< publisher for the positions of the detected faces
@@ -153,9 +153,11 @@ protected:
 	double face_identification_score_decay_rate_; ///< face identification score decay rate (0 < x < 1), i.e. the score for each label at a certain detection location is multiplied by this factor
 	double min_face_identification_score_to_publish_; ///< minimum face identification score to publish (0 <= x < max_score), i.e. this score must be exceeded by a label at a detection location before the person detection is published (higher values increase robustness against short misdetections, but consider the maximum possible score max_score w.r.t. the face_identification_score_decay_rate: new_score = (old_score+1)*face_identification_score_decay_rate --> max_score = face_identification_score_decay_rate/(1-face_identification_score_decay_rate))
 	bool fall_back_to_unknown_identification_; ///< if this is true, the unknown label will be assigned for the identification of a person if it has the highest score, otherwise, the last detection of a name will display as label even if there has been a detection of Unknown recently for that face
+	bool track_with_image_matching_; ///< if this is true, images of current and previous detections will be used in a histogram comparison to help match previous detections to current ones.
+	int image_matching_max_cost_; ///< maximum cost for image matching to allow matching detections at
 	bool display_timing_;
 
-  bool rosbag_mode_;    /// < true if data from a rosbag is used, to ignore deprecated timestamps
+	bool rosbag_mode_;    /// < true if data from a rosbag is used, to ignore deprecated timestamps
 
 public:
 
