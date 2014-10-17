@@ -1,0 +1,5 @@
+#Sets to convert and publish as PCL
+sets_list: ['set_01','set_02','set_03','set_04','set_05','set_06','set_07','set_08','set_09','set_10','set_11','set_12','set_13','set_14','set_15','set_16','set_17','set_18','set_19','set_20','set_21','set_22','set_23','set_24','set_25','set_26','set_27','set_28','set_29','set_30','set_31']
+
+#Perspectives used from Sets
+perspectives_list: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]

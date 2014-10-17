@@ -1,0 +1,12 @@
+<?xml version="1.0"?>
+
+<launch>
+  <!-- Head Isolator for RGBD DB from aau.dk
+	converts depth xmls to xyz coordinates, then uses the cob_people_detection head detector and face_detector to find heads and faces.
+	if exactly 1 head and 1 face are found, the head image and xyz-data is saved as isolated head to use with the rgbd_db_recognition_test -->
+  <rosparam command="load" ns="/cob_people_detection/rgbd_db_head_isolator" file="$(find cob_people_detection)/ros/launch/rgbd_db_head_isolator_params.yaml"/>
+  <node name="rgbd_db_head_isolator" pkg="cob_people_detection" ns="/cob_people_detection/rgbd_db_head_isolator" type="rgbd_db_head_isolator" output="screen">
+    <param name="data_directory" type="string" value="$(find cob_people_detection)/common/files/"/>
+  </node>
+
+</launch>

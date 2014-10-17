@@ -1,0 +1,124 @@
+# DETECTOR PARAMS
+
+# this string allows to change the path to the Haar classifier model
+# string
+# data_directory: path_to_data -> please change this parameter in the launch file
+
+# the factor by which the search window is scaled between the subsequent scans (default: 1.1)
+# double
+faces_increase_search_scale: 1.1
+
+# Minimum number (minus 1) of neighbor rectangles that makes up an object. #3
+# int
+faces_drop_groups: 2  #3
+
+# width of smallest search rectangle (default: 20)
+# int
+faces_min_search_scale_x: 20
+
+# height of smallest search rectangle (default: 20)
+# int
+faces_min_search_scale_y: 20
+
+# when this flag is activated, the 3d size of a face is determined and only reasonable sizes may continue in the processing pipeline
+# moreover, if activated, the background behind the head is cleared in the color image resulting in more robust recognition performance
+# bool
+reason_about_3dface_size: true
+
+# the maximum feasible face diameter [m] if reason_about_3dface_size is enabled
+# double
+face_size_max_m: 0.35
+
+# the minimum feasible face diameter [m] if reason_about_3dface_size is enabled
+# double
+face_size_min_m: 0.1
+
+# maximum distance [m] of detected faces to the sensor
+# double
+max_face_z_m: 8.0
+
+# enables some debug outputs
+# bool
+debug: false
+
+# display timing information
+# bool
+display_timing: false
+
+
+# RECOGNIZER PARAMS
+# this string allows to change the path to the Haar classifier model
+# string
+# data_directory: path_to_data -> please change this parameter in the launch file
+
+# this flag enables or disables the face recognition step
+# bool
+enable_face_recognition: true
+
+
+# metric for nearest neighbor search in face space: 0 = Euclidean, 1 = Mahalanobis, 2 = Mahalanobis Cosine
+# int
+metric: 0
+
+#shared
+# enables some debug outputs
+# bool
+# debug: false
+
+#specifies subspace algorithm: 0 = Fisherfaces, 1 = Eigenfaces, 2 = LDA2D, 3 = PCA2D
+# int
+recognition_method: 2
+
+
+# is unknown threshold supposed to be utilized: true = use unknown threshold, false = do not use threshold
+# bool
+use_unknown_thresh: true
+
+# use depth
+use_depth: false
+
+# display timing information
+# bool
+display_timing: false
+
+# parameters for face image normalization
+
+# dimension of normalized image
+# int
+norm_size: 100
+
+# toggle illumination compensation
+# bool
+norm_illumination: true
+
+# toggle 3D face alignement
+# bool
+norm_align: false
+
+# toggle processing for extreme conditions
+# bool
+norm_extreme_illumination: false
+
+# set dimension of features ( default )
+# bool
+feature_dimension: 15
+
+# tiers of front-face scores
+#centered
+center: 10
+#slightly out of center
+off_center_1: 30
+#off-center
+off_center_2: 50
+
+
+#training, sets and perspectives used for testing
+#list of sets for copy paste ['set_01','set_02','set_03','set_04','set_05','set_06','set_07','set_08','set_09','set_10','set_11','set_12','set_13','set_14','set_15','set_16','set_17','set_18','set_19','set_20','set_21','set_22','set_23','set_24','set_25','set_26','set_27','set_28','set_29','set_30','set_31']
+
+identification_labels_to_recognize:  ['set_01','set_02','set_03','set_04','set_05','set_06','set_07','set_08','set_09','set_10']#,'set_11','set_12','set_13','set_14','set_15','set_16','set_17','set_18','set_19','set_20','set_21','set_22','set_23','set_24','set_25','set_26','set_27','set_28','set_29','set_30','set_31']
+sets_list: ['set_01','set_02','set_03','set_04','set_05','set_06','set_07','set_08','set_09','set_10']#,'set_11','set_12','set_13','set_14','set_15','set_16','set_17','set_18','set_19','set_20','set_21','set_22','set_23','set_24','set_25','set_26','set_27','set_28','set_29','set_30','set_31']
+perspectives_list: [1, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12, 13]
+
+#detailed output - list every tested image with its recognized label.
+#bool
+detail: false

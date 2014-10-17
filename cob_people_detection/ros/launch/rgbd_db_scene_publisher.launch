@@ -1,0 +1,10 @@
+<?xml version="1.0"?>
+
+<launch>
+	<!-- RGBD_DB_Scene_Publisher
+	Read Image and Depth Data of database from www.vap.aau.dk/rgb-d-face-database/, convert to and publish pointcloud to camera topic for people_detection.launch to receive and work with-->
+	<rosparam command="load" ns="/cob_people_detection/rgbd_db_scene_publisher" file="$(find cob_people_detection)/ros/launch/rgbd_db_scene_publisher.yaml"/>
+	<node name="rgbd_db_scene_publisher" pkg="cob_people_detection" ns="/cob_people_detection/rgbd_db_scene_publisher" type="rgbd_db_scene_publisher" output="screen">
+	</node>
+	<param name="/cob_people_detection/rgbd_db_directory" type="string" value="$(env HOME)/rgbd_db/"/>
+</launch>

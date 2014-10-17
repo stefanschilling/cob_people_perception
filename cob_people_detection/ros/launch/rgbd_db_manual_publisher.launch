@@ -1,0 +1,10 @@
+<?xml version="1.0"?>
+
+<launch>
+	<!-- RGBD_DB_Manual_Publisher - works on scenes from database found at www.vap.aau.dk/rgb-d-face-database/
+	Point rgbd_db_directory to location of database, after converting it's depth .xmls to float using cvt_dat.py  -->
+	<!--rosparam command="load" ns="/cob_people_detection/rgbd_db_manual_publisher" file="$(find cob_people_detection)/ros/launch/rgbd_db_manual_publisher.yaml"/-->
+	<node name="rgbd_db_manual_publisher" pkg="cob_people_detection" ns="/cob_people_detection/rgbd_db_manual_publisher" type="rgbd_db_manual_publisher" output="screen">
+	</node>
+	<param name="/cob_people_detection/rgbd_db_directory" type="string" value="$(env HOME)/rgbd_db/"/>
+</launch>
