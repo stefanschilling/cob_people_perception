@@ -136,7 +136,7 @@ RgbdDbRecognitionTest::RgbdDbRecognitionTest(ros::NodeHandle nh)
 	//Parameters for Test: database directory, sets and perspectives to use
 	XmlRpc::XmlRpcValue perspectives_list, sets_list;
 	if(!node_handle_.getParam("/cob_people_detection/rgbd_db_heads_directory", rgbd_db_directory_)) std::cout<<"PARAM NOT AVAILABLE"<<std::endl;
-	std::cout << "rgbd_db_directory = " << rgbd_db_directory_ << "\n";
+	std::cout << "rgbd_db_heads_directory = " << rgbd_db_directory_ << "\n";
 	node_handle_.getParam("sets_list", sets_list);
 	std::cout << "sets_list = " << sets_list << "\n";
 	node_handle_.getParam("perspectives_list",perspectives_list);
@@ -253,13 +253,13 @@ void RgbdDbRecognitionTest::TestRecognition()
 					xyz_v.push_back(xyz);
 					// detect face
 					face_detector_.detectColorFaces(bmp_v, xyz_v, face_rect_v);
-					std::cout << "detected faces: " << face_rect_v.size();
+					//std::cout << "detected faces: " << face_rect_v.size();
 					if (face_rect_v.size() >0 )
 						{
 						face_found++;
-						std::cout << " and " << face_rect_v[0].size();
+						//std::cout << " and " << face_rect_v[0].size();
 						}
-					std::cout << " for a total of " << face_found << "faces" <<std::endl;
+					//std::cout << " for a total of " << face_found << "faces" <<std::endl;
 					// if single face detection, recognize face
 					if(face_rect_v.size()==1 && face_rect_v[0].size()==1)
 					{
@@ -283,11 +283,14 @@ void RgbdDbRecognitionTest::TestRecognition()
 				else if (bmp_test.good() != xyz_test.good()) continue; //bmp or xml went missing
 			}
 		}
+        std::cout << "Images tested: " << set_imgs << " - Images correctly labeled: " << set_rec << "\n Percentage correct: " << (float) set_rec/set_imgs << "\n \n";
+
         output_textfile << "Images tested: " << set_imgs << " - Images correctly labeled: " << set_rec << "\n Percentage correct: " << (float) set_rec/set_imgs << "\n \n";
 		total_rec+=set_rec;
 		total_imgs+=set_imgs;
 		set_rec=set_imgs=0;
 	}
+	std::cout << "Totals: \nImages tested: " << total_imgs << " - Images correctly labeled: " << total_rec << "\n Percentage correct: " << (float) total_rec/total_imgs << "\n";
 	output_textfile << "\n";
 	output_textfile << "Totals: \nImages tested: " << total_imgs << " - Images correctly labeled: " << total_rec << "\n Percentage correct: " << (float) total_rec/total_imgs << "\n";
 	output_textfile.close();

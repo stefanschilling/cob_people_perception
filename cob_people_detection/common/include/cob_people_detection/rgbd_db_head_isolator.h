@@ -38,7 +38,7 @@ public:
 protected:
 	bool saveImages(cv::Mat& image, cv::Mat& xyz);
 	ros::NodeHandle node_handle_;
-	std::string data_directory_;
+	std::string rgbd_db_head_directory_;
 	int received_, saved_, faulty_det_;
 
 	// synchronized Subscribers

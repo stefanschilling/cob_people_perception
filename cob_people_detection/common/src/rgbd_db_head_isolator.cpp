@@ -9,8 +9,8 @@ using namespace ipa_PeopleDetector;
 RgbdDbHeadIsolator::RgbdDbHeadIsolator(ros::NodeHandle n)
 :node_handle_(n)
 {
-	node_handle_.getParam("/cob_people_detection/data_directory", data_directory_);
-	std::cout << "data_directory = " << data_directory_ << "\n";
+	node_handle_.getParam("/cob_people_detection/rgbd_db_head_directory_", rgbd_db_head_directory_);
+	std::cout << "rgbd_db_head_directory_ = " << rgbd_db_head_directory_ << "\n";
 
 	det_sub.subscribe(node_handle_, "/cob_people_detection/face_detector/face_positions", 1);
 	set_sub.subscribe(node_handle_, "/cob_people_detection/rgbd_db_scene_publisher/set_path", 1);
@@ -71,10 +71,10 @@ void RgbdDbHeadIsolator::callback(const cob_people_detection_msgs::ColorDepthIma
 		}
 		cv::Mat xyz = cv_ptr->image;
 
-		if (!boost::filesystem::exists ("/home/stefan/rgbd_db_heads")) boost::filesystem::create_directory("/home/stefan/rgbd_db_heads");
+		if (!boost::filesystem::exists (rgbd_db_head_directory_)) boost::filesystem::create_directory(rgbd_db_head_directory_);
 		std::ostringstream depth_p,img_p;
 		std::string dir, depth_path, img_path;
-		dir = "/home/stefan/rgbd_db_heads";
+		dir = rgbd_db_head_directory_;
 		dir = dir+set;
 		if (!boost::filesystem::exists (dir.c_str()))
 			{
@@ -83,8 +83,8 @@ void RgbdDbHeadIsolator::callback(const cob_people_detection_msgs::ColorDepthIma
 					std::cout << "created new folder for set: " << dir << std::endl;
 					}
 			}
-		depth_p<<"/home/stefan/rgbd_db_heads"<<set<<"/"<<file<<"_d.xml";
-		img_p<<"/home/stefan/rgbd_db_heads"<<set<<"/"<<file<<"_c.bmp";
+		depth_p<<rgbd_db_head_directory_<<set<<"/"<<file<<"_d.xml";
+		img_p<<rgbd_db_head_directory_<<set<<"/"<<file<<"_c.bmp";
 		img_path=img_p.str();
 		depth_path=depth_p.str();
 		//std::cout << "writing to: " << depth_path << "\n" << img_path << "\n";
