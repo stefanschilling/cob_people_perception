@@ -829,7 +829,7 @@ void DetectionTrackerNode::inputCallback(const cob_people_detection_msgs::Detect
 				// added checks for image similarity. Values to be determined experimentally
 				// if  cost < 50, do not match to previous detections.
 				// -> Detection will have no matching, new detections for unmatched entries are created in the next section.
-				if (costs_matrix_image[previous_match_index][current_match_index] < 25 && costs_matrix[previous_match_index][current_match_index] < 80)
+				if (costs_matrix_image[previous_match_index][current_match_index] < image_matching_max_cost_ && costs_matrix[previous_match_index][current_match_index] < 80)
 				{
 					// instantiate the matching
 					copyDetection(face_position_msg_in->detections[current_match_index], face_position_accumulator_[previous_match_index], true, previous_match_index);

@@ -103,6 +103,35 @@ message(STATUS "PCL Include dirs: ${PCL_INCLUDE_DIRS}")
           common/src/face_align_test.cpp
           )
         target_link_libraries(face_align_test face_normalizer )
+	
+    #rgbd db executables
+	rosbuild_add_executable(rgbd_db_recognition_test
+			common/src/rgbd_db_recognition_test.cpp
+			common/src/abstract_face_recognizer.cpp
+			common/src/face_recognizer.cpp
+			common/src/face_detector.cpp
+			)
+	target_link_libraries(rgbd_db_recognition_test face_normalizer face_recognizer_algorithms)    
+    rosbuild_link_boost(rgbd_db_recognition_test filesystem system)
+    
+	rosbuild_add_executable(rgbd_db_scene_publisher
+			common/src/rgbd_db_scene_publisher.cpp
+			)
+    target_link_libraries(rgbd_db_scene_publisher)
+	rosbuild_link_boost(rgbd_db_scene_publisher filesystem system)
+
+	rosbuild_add_executable(rgbd_db_head_isolator
+			common/src/rgbd_db_head_isolator.cpp
+			)
+	target_link_libraries(rgbd_db_head_isolator)
+	rosbuild_link_boost(rgbd_db_head_isolator filesystem system signals)
+
+	rosbuild_add_executable(rgbd_db_manual_publisher
+			common/src/rgbd_db_manual_publisher.cpp
+			)
+	target_link_libraries(rgbd_db_manual_publisher)
+	rosbuild_link_boost(rgbd_db_manual_publisher filesystem system)	
+
 
 #    rosbuild_add_executable(synth_face_test
 #          common/src/synth_face_test.cpp
@@ -124,7 +153,7 @@ message(STATUS "PCL Include dirs: ${PCL_INCLUDE_DIRS}")
     rosbuild_add_executable(face_detector_node
     			common/src/face_detector.cpp
     			ros/src/face_detector_node.cpp)
-    add_custom_command(TARGET face_detector_node POST_BUILD COMMAND mkdir -p ${PROJECT_SOURCE_DIR}/common/files/training_data)
+	add_custom_command(TARGET face_detector_node POST_BUILD COMMAND mkdir -p ${PROJECT_SOURCE_DIR}/common/files/training_data)
     
     rosbuild_add_executable(face_recognizer_node
     			common/src/abstract_face_recognizer.cpp
@@ -192,6 +221,10 @@ message(STATUS "PCL Include dirs: ${PCL_INCLUDE_DIRS}")
     rosbuild_add_compile_flags(sensor_message_gateway_node -D__LINUX__)
     rosbuild_add_compile_flags(sensor_message_gateway_nodelet -D__LINUX__)
     rosbuild_add_compile_flags(coordinator_node -D__LINUX__)
+    rosbuild_add_compile_flags(rgbd_db_recognition_test -D__LINUX__)
+    rosbuild_add_compile_flags(rgbd_db_scene_publisher -D__LINUX__)
+	rosbuild_add_compile_flags(rgbd_db_head_isolator -D__LINUX__)
+	rosbuild_add_compile_flags(rgbd_db_manual_publisher -D__LINUX__)
 
 # rostest
 #rosbuild_download_test_data(http://pr.willowgarage.com/data/face_detector/face_detector_noface_test_diamondback.bag face_detector_noface_test.bag 37f043be780a4511c853379defdd9855)

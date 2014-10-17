@@ -84,31 +84,32 @@ void ipa_PeopleDetector::FaceRecognizer1D::classifyImage(cv::Mat& probe_mat,int&
   cv::Mat classification_probabilities;
   classifyImage(probe_mat,max_prob_index,classification_probabilities);
 }
+
 void ipa_PeopleDetector::FaceRecognizer1D::classifyImage(cv::Mat& probe_mat,int& max_prob_index,cv::Mat& classification_probabilities)
 {
+	//project query mat to feature space
+	cv::Mat feature_arr=cv::Mat(1,target_dim_,CV_64FC1);
+	// conversion from matrix format to array
+	cv::Mat probe_arr=cv::Mat(1,probe_mat.total(),probe_mat.type());
 
+	SubspaceAnalysis::mat2arr(probe_mat,probe_arr);
+	extractFeatures(probe_arr,projection_mat_,feature_arr);
 
-  //project query mat to feature space
-  cv::Mat feature_arr=cv::Mat(1,target_dim_,CV_64FC1);
-  // conversion from matrix format to array
-  cv::Mat probe_arr=cv::Mat(1,probe_mat.total(),probe_mat.type());
-  SubspaceAnalysis::mat2arr(probe_mat,probe_arr);
+	//calculate distance in face space DIFS
+	double minDIFS;
+	cv::Mat minDIFScoeffs;
+	int minDIFSindex;
 
-  extractFeatures(probe_arr,projection_mat_,feature_arr);
+	calcDIFS(feature_arr,minDIFSindex,minDIFS,classification_probabilities);
 
-  //calculate distance in face space DIFS
-  double minDIFS;
-  cv::Mat minDIFScoeffs;
-  int minDIFSindex;
-  calcDIFS(feature_arr,minDIFSindex,minDIFS,classification_probabilities);
-  max_prob_index=(int)model_label_vec_[minDIFSindex];
+	max_prob_index=(int)model_label_vec_[minDIFSindex];
 
-  //check whether unknown threshold is exceeded
-  if(use_unknown_thresh_)
-  {
-    if(! is_known(minDIFS,unknown_thresh_))max_prob_index=-1;
-  }
-  return;
+	//check whether unknown threshold is exceeded
+	if(use_unknown_thresh_)
+	{
+		if(! is_known(minDIFS,unknown_thresh_))max_prob_index=-1;
+	}
+	return;
 }
 
 

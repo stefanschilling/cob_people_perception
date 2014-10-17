@@ -123,7 +123,7 @@ bool FaceNormalizer::recordFace(cv::Mat& RGB,cv::Mat& XYZ)
 
 bool FaceNormalizer::synthFace(cv::Mat &RGB, cv::Mat& XYZ, cv::Size& norm_size, std::vector<cv::Mat>& images, std::vector<cv::Mat>& depthmaps, float& step_size, int& step_no)
 {
-	std::cout << " ADDING SYNTH FACES - FACE NORMALIZER" << std::endl;
+	//std::cout << " ADDING SYNTH FACES - FACE NORMALIZER" << std::endl;
 
 	cv::Mat GRAY,GRAY2;
 	cv::cvtColor(RGB,GRAY,CV_RGB2GRAY);
@@ -146,7 +146,7 @@ bool FaceNormalizer::synthFace(cv::Mat &RGB, cv::Mat& XYZ, cv::Size& norm_size, 
 		std::cout<< "synth failed \n";
 		return false;
 	}
-	std::cout << "returning true in faceSynth" << std::endl;
+	//std::cout << "returning true in faceSynth" << std::endl;
 	return true;
 
 }

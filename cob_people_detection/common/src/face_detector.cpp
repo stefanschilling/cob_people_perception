@@ -94,6 +94,7 @@ unsigned long FaceDetector::init(std::string directory, double faces_increase_se
 
 	// load Haar-Classifier for frontal face detection
 	std::string faceCascadePath = directory + "haarcascades/haarcascade_frontalface_alt2.xml";
+	std::cout << " trying to load facecascade from: " << faceCascadePath << std::endl;
 	m_face_cascade = (CvHaarClassifierCascade*)cvLoad(faceCascadePath.c_str(), 0, 0, 0 );	//"ConfigurationFiles/haarcascades/haarcascade_frontalface_alt2.xml", 0, 0, 0 );
 
 	// Create Memory
