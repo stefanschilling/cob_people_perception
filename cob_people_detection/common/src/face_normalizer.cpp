@@ -61,11 +61,13 @@ void FaceNormalizer::init(std::string i_classifier_directory,std::string i_stora
 
   if (config_.align)
   {
+
     std::string eye_r_path,eye_path,eye_l_path,nose_path,mouth_path;
     eye_r_path=    classifier_directory_+ "haarcascade_mcs_righteye.xml";
     eye_l_path=    classifier_directory_+ "haarcascade_mcs_lefteye.xml";
     nose_path=     classifier_directory_+ "haarcascade_mcs_nose.xml";
 
+    std::cout << "trying to load"<<eye_r_path << std::endl;
     eye_r_cascade_=(CvHaarClassifierCascade*) cvLoad(eye_r_path.c_str(),0,0,0);
     eye_r_storage_=cvCreateMemStorage(0);
 

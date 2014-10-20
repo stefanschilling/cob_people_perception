@@ -4,13 +4,15 @@
 	<!-- RGBD_DB_Recognition_Test - works on Head-Detections from database found at www.vap.aau.dk/rgb-d-face-database/.imports face detector and face recognizer. Point rgbd_db_directory parameter to location of head-database. Set parameters in rgbd_db_recognition_test.yaml to test recognition across sets.
 	Convert database from integer to float values using the python converter. Isolate head detections by running cob_people_detection, the scene_publisher and head_isolator. The scene_publisher creates and publishes pointclouds from the databases depth values.
 	cob_people_detections receives the pointclouds like normal kinect messages.
-	the head_isolator picks up head_detections and saves the images and pointclouds.
-	this saves cpu time and disk space for future training and testing processes.
-	Head detections are cut out by using cob_people_detection, scene_publisher and head_isolator  the full database, and saving head detection images using the head_ -->
+	the head_isolator picks up head_detections and saves their smaller images and pointclouds.
+	Head detections are cut out by using cob_people_detection, scene_publisher and head_isolator on the full database, and saving head detection images using the head_detector/head_detections topic -->
 	<rosparam command="load" ns="/cob_people_detection/rgbd_db_recognition_test" file="$(find cob_people_detection)/ros/launch/rgbd_db_recognition_test.yaml"/>
 	<node name="rgbd_db_recognition_test" pkg="cob_people_detection" ns="/cob_people_detection/rgbd_db_recognition_test" type="rgbd_db_recognition_test" output="screen">
 
 	</node>
+	<!--data_directory: point to cob_people_direction folder containing haar classifiers in sub directory
+		rgbd_db_heads_directory: point to directory where head image cut-outs are stored (use rgbd_db_head_isolator with rgbd_db_scene_publisher to cut these out)
+		data_storage_directory: point to directory containing training_data sub directory-->
 	<param name="/cob_people_detection/data_directory" type="string" value="$(find cob_people_detection)/common/files/"/>
 	<param name="/cob_people_detection/rgbd_db_heads_directory" type="string" value="$(env HOME)/rgbd_db_heads/"/>
 	<param name="/cob_people_detection/data_storage_directory" type="string" value="$(env HOME)/.ros/cob_people_detection/files/"/>

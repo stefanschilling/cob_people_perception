@@ -85,7 +85,7 @@ FaceCaptureNode::FaceCaptureNode(ros::NodeHandle nh)
 	int  norm_size;						// Desired width and height of the Eigenfaces (=eigenvectors).
 
 	std::cout << "\n---------------------------\nFace Capture Node Parameters:\n---------------------------\n";
-	if(!node_handle_.getParam("/cob_people_detection/data_storage_directory", data_directory_)) std::cout<<"PARAM NOT AVAILABLE"<<std::endl;
+	if(!node_handle_.getParam("/cob_people_detection/face_capture/face_capture/data_directory", data_directory_)) std::cout<<"PARAM NOT AVAILABLE"<<std::endl;
 	std::cout << "data_directory = " << data_directory_ << "\n";
 	node_handle_.param("norm_size", norm_size, 100);
 	std::cout << "norm_size = " << norm_size << "\n";
@@ -100,11 +100,11 @@ FaceCaptureNode::FaceCaptureNode(ros::NodeHandle nh)
 	node_handle_.param("use_depth",use_depth,false);
 	std::cout<< "use depth: "<<use_depth<<"\n";
 	node_handle_.param("center", center_score, 10);
-	std::cout << "center score: " << center_score<<"n";
+	std::cout << "center score: " << center_score<<"\n";
 	node_handle_.param("off_center_1", off_center_score_1, 30);
-	std::cout << "off_center_1: " << off_center_score_1 <<"n";
+	std::cout << "off_center_1: " << off_center_score_1 <<"\n";
 	node_handle_.param("off_center_2", off_center_score_2, 50);
-	std::cout << "off_center_2: " << off_center_score_2 <<"n";
+	std::cout << "off_center_2: " << off_center_score_2 <<"\n";
 
 	// face recognizer trainer
 	face_recognizer_trainer_.initTraining(data_directory_, norm_size,norm_illumination,norm_align,norm_extreme_illumination, debug, face_images_, face_depthmaps_, use_depth);
@@ -223,11 +223,10 @@ void FaceCaptureNode::addSynthDataServerCallback(const cob_people_detection::add
 	// secure this function with a mutex
 	boost::lock_guard<boost::mutex> lock(active_action_mutex_);
 
-	std::cout << "DOING STUFF - ADD SYNTH DATA SERVER CALLBACK" << std::endl;
 	// open the gateway for sensor messages
 	// rosrun dynamic_reconfigure dynparam set /cob_people_detection/sensor_message_gateway/sensor_message_gateway target_publishing_rate 2.0
 
-	// set the label for the images than will be captured
+	// set the label for the images to be captured and created
 	current_label_ = goal->label;
 	rotation_deg_ = goal->rotation_deg;
 	rotation_step_ = goal->rotation_step;
@@ -266,6 +265,8 @@ void FaceCaptureNode::addSynthDataServerCallback(const cob_people_detection::add
 	}
 	else if (goal->capture_mode == CONTINUOUS)
 	{
+		// Disabled, currently unable to detect features in the images used here
+
 		// configure continuous recording
 		number_captured_images_ = 0;
 		while (number_captured_images_ < goal->continuous_mode_images_to_capture)
@@ -333,7 +334,7 @@ void FaceCaptureNode::inputCallbackCenter(const cob_people_detection_msgs::Color
 			}
 		}
 		//ROS_INFO("DONE LOOKING FOR FACES");
-		std::cout << " found: " << face_detection_msg->head_detections.size() << "Heads. Closest one will be used - index: " << headIndex << std::endl;
+		if (face_detection_msg->head_detections.size()>1) std::cout << " found: " << face_detection_msg->head_detections.size() << "Heads. Closest one will be used - index: " << headIndex << std::endl;
 
 		// convert color image to cv::Mat
 		cv_bridge::CvImageConstPtr color_image_ptr;
@@ -351,11 +352,13 @@ void FaceCaptureNode::inputCallbackCenter(const cob_people_detection_msgs::Color
 		cv::Rect head_bounding_box(head_rect.x, head_rect.y, head_rect.width, head_rect.height);
 		cv::Mat img_color = color_image;
 		cv::Mat img_depth = depth_image;
-		/*std::cout << "sending to face feature orientation score" << std::endl;
-		float score = face_recognizer_trainer_.FaceFeatureOrientationScore(img_color, img_depth);
+
+		//std::cout << "sending to face feature orientation score" << std::endl;
+		//float score = face_recognizer_trainer_.FaceFeatureOrientationScore(img_color, img_depth);
 		//save original, create and save additional rotated views
-		std::cout << " IMAGE ACHIEVED ORIENTATION SCORE: " << score << std::endl;
-		if (( number_captured_images_ < 1 && score < center_score) || (number_captured_images_ < 5 && score < off_center_score_1) || (number_captured_images_ < 9 && score < off_center_score_2) )
+		//std::cout << " IMAGE ACHIEVED ORIENTATION SCORE: " << score << std::endl;
+
+		/*if (( number_captured_images_ < 1 && score < center_score) || (number_captured_images_ < 5 && score < off_center_score_1) || (number_captured_images_ < 9 && score < off_center_score_2) )
 		{
 			if (face_recognizer_trainer_.addSynthFace(img_color,img_depth,face_bounding_box,head_bounding_box , current_label_, rotation_deg_, rotation_step_, face_images_,face_depthmaps_)==ipa_Utils::RET_FAILED)
 			{
@@ -363,22 +366,17 @@ void FaceCaptureNode::inputCallbackCenter(const cob_people_detection_msgs::Color
 				return;
 			}
 		}*/
+
+		// create additional, rotated views of stored image
 		if (face_recognizer_trainer_.addSynthFace(img_color,img_depth,face_bounding_box,head_bounding_box , current_label_, rotation_deg_, rotation_step_, face_images_,face_depthmaps_)==ipa_Utils::RET_FAILED)
 		{
 			ROS_WARN("Normalizing failed");
 			return;
 		}
 		std::cout << "face_images_: " << face_images_.size() << "face_depthmaps: " << face_depthmaps_.size() << std::endl;
-		// normalize face if more real training pictures were requested.
-		// only after successful recording
-		//capture_image_ = false;			// reset trigger for recording
+
 		number_captured_images_+=face_images_.size()-number_captured_images_;		// increase number of captured images
 
-//		if (face_recognizer_trainer_.addSynthFace(img_color,img_depth,face_bounding_box,head_bounding_box , current_label_, rotation_deg_, rotation_step_, face_images_,face_depthmaps_)==ipa_Utils::RET_FAILED)
-//		{
-//			ROS_WARN("Normalizing failed");
-//			return;
-//		}
 		ROS_INFO("Face number %d captured.", number_captured_images_);
 	}
 }

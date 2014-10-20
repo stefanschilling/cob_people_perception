@@ -235,7 +235,7 @@ int main(int argc, const char *argv[])
 	cfg.cvt2gray=false;
 	cfg.extreme_illumination_condtions=false;
 
-	std::string  class_path="/opt/ros/groovy/share/OpenCV/";
+	std::string  class_path="/home/stefan/git/cob_people_perception/cob_people_detection/common/files/haarcascades/";
 
 	FaceNormalizer fn;
 	fn.init(class_path,cfg);
@@ -261,7 +261,7 @@ int main(int argc, const char *argv[])
 		src_set = set_filter[j];
 		path = "/home/stefan/rgbd_db_heads/"+src_set;
 		create_file_lists(path, xmls);
-		std::cout << xmls.size() << std::endl;
+		std::cout << "source files for this set: " << xmls.size() << std::endl;
 
 		label = src_set;
 
@@ -277,7 +277,6 @@ int main(int argc, const char *argv[])
 				std::string substring = xmls[i].substr(perspective+1, 3);
 				if(count < 1 && xyz_stream.str() == substring)
 				{
-					std::cout << count << std::endl;
 					count++;
 					//std::cout << bmps[i] << std::endl;
 					bmp_path = xmls[i];
@@ -293,6 +292,9 @@ int main(int argc, const char *argv[])
 					{
 						std::cout << "images added from source image " << bmp_path << ": " << img_count-img_count_current <<std::endl;
 					}
+					float score;
+//					fn.frontFaceImage(img,depth,score);
+//					std::cout << bmp_path << " Score: " << score << std::endl;
 					img_count_current = img_count;
 					fs.release();
 				}

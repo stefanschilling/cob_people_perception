@@ -122,3 +122,8 @@ perspectives_list: [1, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12, 13]
 #detailed output - list every tested image with its recognized label.
 #bool
 detail: false
+
+#transform_labels - change identification labels above into 9 split labels for centern and 8 orientations.
+#simplifies set selection while testing with axis split labels.
+#bool
+transform_labels: true

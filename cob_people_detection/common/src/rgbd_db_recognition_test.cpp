@@ -4,28 +4,11 @@
 #else
 #endif
 
-// OpenCV
-#include "opencv/cv.h"
-#include "opencv/highgui.h"
-#include <cv_bridge/cv_bridge.h>
-#include <sensor_msgs/image_encodings.h>
-
-// Boost
-#include <boost/shared_ptr.hpp>
-
-// timer
-#include <cob_people_detection/timer.h>
-
-#include <sys/time.h>
-#include <fstream>
-
-
 using namespace ipa_PeopleDetector;
 
 RgbdDbRecognitionTest::RgbdDbRecognitionTest(ros::NodeHandle nh)
 : node_handle_(nh)
 {
-	this->face_found=0;
 	// Parameters for Face Detector
 	double faces_increase_search_scale;		// The factor by which the search window is scaled between the subsequent scans
 	int faces_drop_groups;					// Minimum number (minus 1) of neighbor rectangles that makes up an object.
@@ -116,19 +99,33 @@ RgbdDbRecognitionTest::RgbdDbRecognitionTest(ros::NodeHandle nh)
 	node_handle_.param("use_depth",use_depth,false);
 	std::cout<< "use depth: "<<use_depth<<"\n";
 	// todo: make parameters for illumination and alignment normalization on/off
+	node_handle_.param("transform_labels", trans_labels_, false);
+	std::cout << "transform labels to split axis: " <<trans_labels_ << "\n";
 
 	std::cout << "identification_labels_to_recognize: \n";
 	XmlRpc::XmlRpcValue identification_labels_to_recognize_list;
 	node_handle_.getParam("identification_labels_to_recognize", identification_labels_to_recognize_list);
 	if (identification_labels_to_recognize_list.getType() == XmlRpc::XmlRpcValue::TypeArray)
 	{
-		identification_labels_to_recognize_.resize(identification_labels_to_recognize_list.size());
+		if (!trans_labels_) identification_labels_to_recognize_.resize(identification_labels_to_recognize_list.size());
+		else if (trans_labels_) identification_labels_to_recognize_.resize(9*identification_labels_to_recognize_list.size());
 		for (int i = 0; i < identification_labels_to_recognize_list.size(); i++)
 		{
 			ROS_ASSERT(identification_labels_to_recognize_list[i].getType() == XmlRpc::XmlRpcValue::TypeString);
-			identification_labels_to_recognize_[i] = static_cast<std::string>(identification_labels_to_recognize_list[i]);
+			if (!trans_labels_) identification_labels_to_recognize_[i] = static_cast<std::string>(identification_labels_to_recognize_list[i]);
+			else
+			{
+				for (int j =0; j<9; j++)
+				{
+					std::stringstream convert;
+					convert << "_" << (j);
+					identification_labels_to_recognize_[9*i+j] = static_cast<std::string>(identification_labels_to_recognize_list[i]).append(convert.str());
+				}
+			}
 		}
 	}
+	std::cout << "Labels to recognize: " << std::endl;
+	for (int j = 0; j<identification_labels_to_recognize_.size(); j++) std::cout << identification_labels_to_recognize_[j] << std::endl;
 
 	// initialize face recognizer
 	face_recognizer_.init(data_directory_, norm_size,norm_illumination,norm_align,norm_extreme_illumination, metric, debug, identification_labels_to_recognize_,recognition_method, feature_dimension, use_unknown_thresh, use_depth);
@@ -143,38 +140,34 @@ RgbdDbRecognitionTest::RgbdDbRecognitionTest(ros::NodeHandle nh)
 	std::cout<< "perspectives_list: "<<perspectives_list<<"\n";
 	node_handle_.param("detail",detail_,false);
 	std::cout<< "output in full detail: "<<detail_<<"\n";
+
+	// translate set and perspective arrays from xml into string vectors
 	if (sets_list.getType() == XmlRpc::XmlRpcValue::TypeArray)
 	{
 		sets_.resize(sets_list.size());
-		//std::cout << "copying sets_list elements to sets: ";
 		for (int i = 0; i < sets_list.size(); i++)
 		{
 			ROS_ASSERT(sets_list[i].getType() == XmlRpc::XmlRpcValue::TypeString);
 			sets_[i] = static_cast<std::string>(sets_list[i]);
-			//std::cout << i << " ";
 		}
 	}
-	//std::cout << "\nsets_list -> sets complete" << std::endl;
+
 	if (perspectives_list.getType() == XmlRpc::XmlRpcValue::TypeArray)
 	{
 		perspectives_.resize(perspectives_list.size());
-		//std::cout << "copying perspectives_list elements to perspectives: ";
 		for (int i = 0; i < perspectives_list.size(); i++)
 		{
 			ROS_ASSERT(perspectives_list[i].getType() == XmlRpc::XmlRpcValue::TypeInt);
 			perspectives_[i] = static_cast<int>(perspectives_list[i]);
-			//std::cout << i << " ";
 		}
 	}
-	//std::cout << "\nperspectives_list -> perspectives complete" << std::endl;
+
+	this->face_found_=0;
 }
 
 RgbdDbRecognitionTest::~RgbdDbRecognitionTest(void)
 {
 }
-
-// Prevent deleting memory twice, when using smart pointer
-void voidDeleter(const sensor_msgs::Image* const) {}
 
 bool RgbdDbRecognitionTest::loadModel(std::vector<std::string>& identification_labels_to_recognize)
 {
@@ -184,17 +177,85 @@ bool RgbdDbRecognitionTest::loadModel(std::vector<std::string>& identification_l
 	return result_state;
 }
 
+bool RgbdDbRecognitionTest::checkOrientation(char label_tag, int p)
+{
+	// compare found orientation with perspective
+	switch (label_tag)
+	{
+	case '0':
+		if (p == 7)
+		{
+			return true;
+		}
+		break;
+	case '1':
+		if (p == 11 || p == 13)
+		{
+			return true;
+		}
+		break;
+	case '2':
+		if (p == 10)
+		{
+			return true;
+		}
+		break;
+	case '3':
+		if (p == 5 || p ==6 )
+		{
+			return true;
+		}
+		break;
+	case '4':
+		if (p == 2)
+		{
+			return true;
+		}
+		break;
+	case '5':
+		if (p == 1 || p == 3)
+		{
+			return true;
+		}
+		break;
+	case '6':
+		if (p == 4)
+		{
+			return true;
+		}
+		break;
+	case '7':
+		if (p == 8 || p == 9)
+		{
+			return true;
+		}
+		break;
+	case '8':
+		if (p == 12)
+		{
+			return true;
+		}
+		break;
+	}
+
+	return false;
+}
+
 void RgbdDbRecognitionTest::TestRecognition()
 {
 	std::string out_path;
 	std::stringstream bmp_stream,xyz_stream;
 	cv::Mat bmp,xyz;
 
-	//vars for recognition percentage
+	//ints for recognition percentage
 	int set_rec, total_rec, set_imgs, total_imgs;
 	set_rec=total_rec=set_imgs=total_imgs=0;
 
-	//get current time to stamp test output file with
+	//ints for perspective/orientation test
+	int set_persp, set_persp_rec, total_persp, total_persp_rec;
+	set_persp=set_persp_rec=total_persp=total_persp_rec = 0;
+
+	//get current data and time to stamp test output file with
 	out_path.append(rgbd_db_directory_);
 	time_t now;
 	char date_c[24];
@@ -251,27 +312,42 @@ void RgbdDbRecognitionTest::TestRecognition()
 					fs_read2.release();
 					bmp_v.push_back(bmp);
 					xyz_v.push_back(xyz);
+
 					// detect face
 					face_detector_.detectColorFaces(bmp_v, xyz_v, face_rect_v);
 					//std::cout << "detected faces: " << face_rect_v.size();
 					if (face_rect_v.size() >0 )
 						{
-						face_found++;
+						face_found_++;
 						//std::cout << " and " << face_rect_v[0].size();
 						}
-					//std::cout << " for a total of " << face_found << "faces" <<std::endl;
+					//std::cout << " for a total of " << face_found_ << "faces" <<std::endl;
+
 					// if single face detection, recognize face
 					if(face_rect_v.size()==1 && face_rect_v[0].size()==1)
 					{
+						bool rec, ori;
+						rec=ori=false;
 						set_imgs++;
 						face_recognizer_.recognizeFaces(bmp_v, xyz_v, face_rect_v, label_v, labels, scores);
-						if (label_v[0][0] == sets_[set])
+						std::cout << "compare " << sets_[set] << " with " << label_v[0][0].substr(0,6) << std::endl;
+						if (label_v[0][0].substr(0,6) == sets_[set])
 						{
 							set_rec++;
+							rec=true;
 						}
 						if (detail_)
 						{
 							output_textfile << bmp_stream.str().substr(found+1,bmp_stream.str().size()-3) << " - " << label_v[0][0] << "\n";
+						}
+						if (trans_labels_)
+						{
+							bool right_ori =checkOrientation(label_v[0][0][7], perspectives_[persp]);
+							if (right_ori)
+							{
+								set_persp++;
+								if(rec) set_persp_rec++;
+							}
 						}
 					}
 					else if (detail_)
@@ -283,16 +359,29 @@ void RgbdDbRecognitionTest::TestRecognition()
 				else if (bmp_test.good() != xyz_test.good()) continue; //bmp or xml went missing
 			}
 		}
-        std::cout << "Images tested: " << set_imgs << " - Images correctly labeled: " << set_rec << "\n Percentage correct: " << (float) set_rec/set_imgs << "\n \n";
+        //output for set totals
+        std::cout << "Images tested: " << set_imgs << " - Images correctly labeled: " << set_rec << "\n Percentage correct: " << (float) set_rec/set_imgs << "\n";
+        if (trans_labels_) std::cout << "Orientation correct: " << set_persp << " - Orientation and label correct: " << set_persp_rec << "\n Percentages - orientation: " << (float)set_persp/set_imgs << ", label and orientation: " << (float) set_persp_rec/set_imgs;
+        std::cout << std::endl;
 
-        output_textfile << "Images tested: " << set_imgs << " - Images correctly labeled: " << set_rec << "\n Percentage correct: " << (float) set_rec/set_imgs << "\n \n";
-		total_rec+=set_rec;
+        output_textfile << "Images tested: " << set_imgs << " - Images correctly labeled: " << set_rec << "\n Percentage correct: " << (float) set_rec/set_imgs << "\n";
+        if (trans_labels_) output_textfile<< "Orientation correct: " << set_persp << " - Orientation and label correct: " << set_persp_rec << "\n Percentages - orientation: " << (float)set_persp/set_imgs << ", label and orientation: " << (float) set_persp_rec/set_imgs << "\n";
+        output_textfile << "\n";
+        total_rec+=set_rec;
 		total_imgs+=set_imgs;
+		total_persp+=set_persp;
+		total_persp_rec+=set_persp_rec;
+
 		set_rec=set_imgs=0;
+		set_persp=set_persp_rec=0;
 	}
+	//output for overall totals
 	std::cout << "Totals: \nImages tested: " << total_imgs << " - Images correctly labeled: " << total_rec << "\n Percentage correct: " << (float) total_rec/total_imgs << "\n";
+	if (trans_labels_) std::cout << "Orientation correct: " << total_persp << " - Orientation and label correct: " << total_persp_rec << "\n Percentages - orientation: " << (float)total_persp/total_imgs << ", label and orientation: " << (float) total_persp_rec/total_imgs;
+
 	output_textfile << "\n";
 	output_textfile << "Totals: \nImages tested: " << total_imgs << " - Images correctly labeled: " << total_rec << "\n Percentage correct: " << (float) total_rec/total_imgs << "\n";
+	output_textfile << "Orientation correct: " << total_persp << " - Orientation and label correct: " << total_persp_rec << "\n Percentages - orientation: " << (float)total_persp/total_imgs << ", label and orientation: " << (float) total_persp_rec/total_imgs;
 	output_textfile.close();
 	std::cout << "test completed" << std::endl;
 	ros::shutdown();
@@ -321,8 +410,6 @@ void RgbdDbRecognitionTest::writeSetup(std::ofstream& output_textfile)
 }
 
 
-//#######################
-//#### main programm ####
 int main(int argc, char** argv)
 {
 	// Initialize ROS, specify name of node
@@ -331,10 +418,10 @@ int main(int argc, char** argv)
 	// Create a handle for this node, initialize node
 	ros::NodeHandle nh;
 
-	// Create RgbdDbRecognitionTest class instance, loading parameters from .yaml
+	// Create RgbdDbRecognitionTest class instance
 	RgbdDbRecognitionTest rgbd_db_recognition_test(nh);
 
-	// Initiate Test
+	// Initiate test
 	rgbd_db_recognition_test.TestRecognition();
 
 	ros::spin();

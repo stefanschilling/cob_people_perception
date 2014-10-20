@@ -76,7 +76,7 @@ void RgbdDbManualPublisher::createPcl()
 	std::cout << "Ready Messages for " << sets_[set_] << " - " << persp_ << " - " << shot_ <<std::endl;
 	std::stringstream set_path_stream, file_name_stream;
 
-	set_path_stream <<path_to_db_.c_str()<<file_.c_str();
+	set_path_stream <<path_to_db_.c_str()<<sets_[set_];
 	set_path.data = set_path_stream.str();
 	file_name_stream << std::setw(3)<<std::setfill('0')<<persp_<<"_"<<shot_;
 	file_name.data = file_name_stream.str();
@@ -206,7 +206,6 @@ bool RgbdDbManualPublisher::checkFile()
 	bmp_stream_ << "_c.bmp";
 	xyz_stream_ << "_d.xml";
 
-	//std::cout << "checking availability of:\n" << bmp_stream_.str() << "\n" << xyz_stream_.str() << std::endl;
 	// check if files exists
 	std::ifstream bmp_test(bmp_stream_.str().c_str());
 	std::ifstream xyz_test(xyz_stream_.str().c_str());
@@ -218,7 +217,8 @@ bool RgbdDbManualPublisher::checkFile()
 bool RgbdDbManualPublisher::changeSet(int incr)
 {
 	bool valid = false;
-	for (int i=0; i< sets_.size(); i++)
+	// offset counter by 2, to skip '.' and '..'
+	for (int i=2; i< sets_.size(); i++)
 	{
 		set_+= incr;
 		if (set_ > sets_.size()-1) set_=2;

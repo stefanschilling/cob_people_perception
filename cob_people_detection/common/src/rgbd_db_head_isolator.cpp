@@ -17,7 +17,6 @@ RgbdDbHeadIsolator::RgbdDbHeadIsolator(ros::NodeHandle n)
 	file_sub.subscribe(node_handle_, "/cob_people_detection/rgbd_db_scene_publisher/file_name",1);
 	head_sub.subscribe(node_handle_, "/cob_people_detection/head_detector/head_positions", 1);
 
-
 	sync_input_ = new message_filters::Synchronizer<message_filters::sync_policies::ApproximateTime<cob_people_detection_msgs::ColorDepthImageArray, cob_people_detection_msgs::stamped_string, cob_people_detection_msgs::stamped_string,cob_people_detection_msgs::ColorDepthImageArray> >(4);
 	sync_input_->connectInput(det_sub, file_sub, set_sub,head_sub);
 	sync_input_->registerCallback(boost::bind(&RgbdDbHeadIsolator::callback, this, _1, _2, _3, _4));
@@ -35,6 +34,7 @@ void voidDeleter(const sensor_msgs::Image* const) {}
 
 void RgbdDbHeadIsolator::callback(const cob_people_detection_msgs::ColorDepthImageArray::ConstPtr& detection_msg,const cob_people_detection_msgs::stamped_string::ConstPtr& file_name,const cob_people_detection_msgs::stamped_string::ConstPtr& set_name, const cob_people_detection_msgs::ColorDepthImageArray::ConstPtr& head_msg)
 {
+	// increment received sum, strip set_path from unused information to leave only the set name.
 	received_++;
 	cv_bridge::CvImageConstPtr cv_ptr;
 	std::string set_path = set_name->data.c_str();
@@ -43,6 +43,8 @@ void RgbdDbHeadIsolator::callback(const cob_people_detection_msgs::ColorDepthIma
 
     std::string file = file_name->data.c_str();
     std::cout << "received: " << set << "- " << file << std::endl;
+
+    // if detectors found one head containing 1 face, proceed to convert the image out of the received message and save it.
     if (detection_msg->head_detections.size() == 1 && detection_msg->head_detections[0].face_detections.size() ==1)
     {
     	//color img
@@ -71,6 +73,7 @@ void RgbdDbHeadIsolator::callback(const cob_people_detection_msgs::ColorDepthIma
 		}
 		cv::Mat xyz = cv_ptr->image;
 
+		//check if directories are in place, create if they are missing
 		if (!boost::filesystem::exists (rgbd_db_head_directory_)) boost::filesystem::create_directory(rgbd_db_head_directory_);
 		std::ostringstream depth_p,img_p;
 		std::string dir, depth_path, img_path;
@@ -97,6 +100,7 @@ void RgbdDbHeadIsolator::callback(const cob_people_detection_msgs::ColorDepthIma
     }
     else
 	{
+    	// feedback about detections where none or extra heads or faces were found
     	faulty_det_++;
     	std::cout << "bad detection for " << set << "-" << file_name<<std::endl;
     	std::cout << "heads: " << detection_msg->head_detections.size();
@@ -104,12 +108,6 @@ void RgbdDbHeadIsolator::callback(const cob_people_detection_msgs::ColorDepthIma
     	std::cout<< std::endl;
 	}
     std::cout << "received: " << received_ << "\nAccepted: " << saved_ << "\nBad Detection: " << faulty_det_ << std::endl;
-
-}
-
-bool RgbdDbHeadIsolator::saveImages(cv::Mat& image, cv::Mat& xyz)
-{
-return true;
 }
 
 int main(int argc, char **argv)

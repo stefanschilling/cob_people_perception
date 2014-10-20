@@ -258,9 +258,9 @@ unsigned long ipa_PeopleDetector::FaceRecognizer::addSynthFace(cv::Mat& color_im
 	m_face_labels.push_back(label);
 	dm_exist.push_back(true);
 
-	std::cout << "Size der vectoren vor Synth \nface_images: " <<face_images.size() <<
-			"\nface_depthmaps: " << face_depthmaps.size() << "\nm_face_labels: " << m_face_labels.size() <<
-			"\n dm_exist: " << dm_exist.size() << std::endl;
+	std::cout << "Size of vectors img vectors before synth: \nface_images: " <<face_images.size() <<
+			" - face_depthmaps: " << face_depthmaps.size() << " - m_face_labels: " << m_face_labels.size() <<
+			" -  dm_exist: " << dm_exist.size() << std::endl;
 
 	// rotate head pointcloud to create additional image data
 	std::cout << "return of face_normalizer_.synthFace: " <<face_normalizer_.synthFace(color_image, depth_image, norm_size, face_images, face_depthmaps, rotation_deg, rotation_step) << std::endl;
@@ -270,9 +270,9 @@ unsigned long ipa_PeopleDetector::FaceRecognizer::addSynthFace(cv::Mat& color_im
 		m_face_labels.push_back(label);
 		dm_exist.push_back(true);
 	}
-	std::cout << "Size der vectoren NACH Synth \nface_images: " <<face_images.size() <<
-				"\nface_depthmaps: " << face_depthmaps.size() << "\nm_face_labels: " << m_face_labels.size() <<
-				"\n dm_exist: " << dm_exist.size() << std::endl;
+	std::cout << "Size of vectors after Synth \nface_images: " <<face_images.size() <<
+				" - face_depthmaps: " << face_depthmaps.size() << " - nm_face_labels: " << m_face_labels.size() <<
+				" -  dm_exist: " << dm_exist.size() << std::endl;
 	return ipa_Utils::RET_OK;
 }
 
@@ -506,7 +506,6 @@ unsigned long ipa_PeopleDetector::FaceRecognizer::loadRecognitionModel(std::vect
 		std::cerr << "Error: FaceRecognizer::loadRecognizerData: Path '" << path.string() << "' is not a directory." << std::endl;
 		return ipa_Utils::RET_FAILED;
 	}
-	std::cout << "training nec is: " << training_necessary << std::endl;
 	if (training_necessary == true)
 	{
 		// stored set differs from requested set -> recompute the model from training data

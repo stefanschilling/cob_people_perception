@@ -1,19 +1,23 @@
-#include <iostream>
+// cv includes
 #include <opencv/cv.h>
 #include <opencv/highgui.h>
-#include <boost/thread/mutex.hpp>
-#include "boost/lexical_cast.hpp"
-#include "boost/filesystem.hpp"
-#include <ros/ros.h>
-#include <pcl/point_types.h>
-#include <pcl_ros/point_cloud.h>
-#include <pcl/io/pcd_io.h>
-#include <sensor_msgs/image_encodings.h>
 #include <cv_bridge/cv_bridge.h>
 
+// boost includes
+#include <boost/thread/mutex.hpp>
+#include "boost/filesystem.hpp"
+
+// ros includes
+#include <ros/ros.h>
+#include <sensor_msgs/image_encodings.h>
 #include "cob_people_detection_msgs/stamped_string.h"
 
+// pcl includes
+#include <pcl/point_types.h>
+#include <pcl_ros/point_cloud.h>
+
 #include <fstream>
+
 
 namespace ipa_PeopleDetector {
 

@@ -2,14 +2,11 @@
 #include <opencv/highgui.h>
 #include <cv_bridge/cv_bridge.h>
 #include <fstream>
-#include <iostream>
 
-#include "boost/filesystem/path.hpp"
 #include "boost/filesystem.hpp"
 
 #include <ros/ros.h>
 #include <sensor_msgs/image_encodings.h>
-#include <sensor_msgs/Image.h>
 
 #include <cob_people_detection_msgs/DetectionArray.h>
 #include <cob_people_detection_msgs/ColorDepthImageArray.h>
@@ -30,15 +27,21 @@ public:
 	/// @param nh ROS node handle
 	RgbdDbHeadIsolator(ros::NodeHandle nh);
 	~RgbdDbHeadIsolator(void); ///< Destructor
-	void callback(const cob_people_detection_msgs::ColorDepthImageArray::ConstPtr& Face_Detector_Msg, const cob_people_detection_msgs::stamped_string::ConstPtr& file_name,const cob_people_detection_msgs::stamped_string::ConstPtr& set_name, const cob_people_detection_msgs::ColorDepthImageArray::ConstPtr& head_msg);
 
-	void isolateHeads();
-
+	/// Callback to process related messages from Scene Publisher, Face Detector and Head Detector.
+	/// @param face_detector_msg message from Face Detector, used to verify that exactly one face was detected in the head region.
+	/// @param head_detector_msg message from Head Detector, used for the head image and xyz-data if one face was found in head region. Using Head Detector image, as Face Detector images are stripped of background information, sometimes making the detector unable to find the face again during recognition testing.
+	/// @param file_name_msg message containing the file name of the source picture, which will be used again for saving the head image and xyz data.
+	/// @param set_name_msg message containing the set of the source picture, to be used for creating and sorting into directories of each set.
+	void callback(const cob_people_detection_msgs::ColorDepthImageArray::ConstPtr& face_detector_msg, const cob_people_detection_msgs::stamped_string::ConstPtr& file_name_msg,const cob_people_detection_msgs::stamped_string::ConstPtr& set_name_msg, const cob_people_detection_msgs::ColorDepthImageArray::ConstPtr& head_detector_msg);
 
 protected:
-	bool saveImages(cv::Mat& image, cv::Mat& xyz);
 	ros::NodeHandle node_handle_;
+
+	/// folder to save head data to. Read from ros parameter.
 	std::string rgbd_db_head_directory_;
+
+	/// integers to keep track of proceedings.
 	int received_, saved_, faulty_det_;
 
 	// synchronized Subscribers

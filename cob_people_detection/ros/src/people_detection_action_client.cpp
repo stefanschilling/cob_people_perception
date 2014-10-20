@@ -345,8 +345,10 @@ void addSynthData(AddSynthDataClient& add_synth_data_client, ros::ServiceClient&
 	std::cout << "Input the label of the captured person: ";
 	std::cin >> goal.label;
 
-	std::cout << "Mode of data capture: 0=manual, 1=pictures taken based on face alignment: ";
-	std::cin >> goal.capture_mode;
+//	std::cout << "Mode of data capture: 0=manual, 1=pictures taken based on face alignment: ";
+//	std::cin >> goal.capture_mode;
+	std::cout << "Image Capture Mode set to manual while feature detection fails to load related classifiers." << std::endl;
+	goal.capture_mode = 0;
 
 	if (goal.capture_mode == 1)
 	{
@@ -357,11 +359,11 @@ void addSynthData(AddSynthDataClient& add_synth_data_client, ros::ServiceClient&
 		std::cin >> goal.continuous_mode_delay;
 	}
 
-	std::cout << "Settings to use: 0=default (0.03rad, 7steps, single label) 1=manual ";
+	std::cout << "Settings to use: 0=default (0.03 (*M_PI [rad]), 7steps, single label) 1=manual ";
 	std::cin >> goal.label_mode;
 	if (goal.label_mode == 1)
 	{
-		std::cout << "Rotation per Step? ";
+		std::cout << "Rotation per Step? (*M_PI [rad])";
 		std::cin >> goal.rotation_deg;
 
 		std::cout << "Number of Rotation Steps? ";
