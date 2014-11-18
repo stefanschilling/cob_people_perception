@@ -85,7 +85,8 @@ FaceCaptureNode::FaceCaptureNode(ros::NodeHandle nh)
 	int  norm_size;						// Desired width and height of the Eigenfaces (=eigenvectors).
 
 	std::cout << "\n---------------------------\nFace Capture Node Parameters:\n---------------------------\n";
-	if(!node_handle_.getParam("/cob_people_detection/face_capture/face_capture/data_directory", data_directory_)) std::cout<<"PARAM NOT AVAILABLE"<<std::endl;
+	//if(!node_handle_.getParam("/cob_people_detection/face_capture/face_capture/data_directory", data_directory_)) std::cout<<"PARAM NOT AVAILABLE"<<std::endl;
+	if(!node_handle_.getParam("/cob_people_detection/data_storage_directory", data_directory_)) std::cout<<"PARAM NOT AVAILABLE"<<std::endl;
 	std::cout << "data_directory = " << data_directory_ << "\n";
 	node_handle_.param("norm_size", norm_size, 100);
 	std::cout << "norm_size = " << norm_size << "\n";
@@ -99,12 +100,10 @@ FaceCaptureNode::FaceCaptureNode(ros::NodeHandle nh)
 	std::cout << "debug = " << debug << "\n";
 	node_handle_.param("use_depth",use_depth,false);
 	std::cout<< "use depth: "<<use_depth<<"\n";
+
+	//parameters to ensure training database diversification,
 	node_handle_.param("center", center_score, 10);
 	std::cout << "center score: " << center_score<<"\n";
-	node_handle_.param("off_center_1", off_center_score_1, 30);
-	std::cout << "off_center_1: " << off_center_score_1 <<"\n";
-	node_handle_.param("off_center_2", off_center_score_2, 50);
-	std::cout << "off_center_2: " << off_center_score_2 <<"\n";
 
 	// face recognizer trainer
 	face_recognizer_trainer_.initTraining(data_directory_, norm_size,norm_illumination,norm_align,norm_extreme_illumination, debug, face_images_, face_depthmaps_, use_depth);
@@ -224,16 +223,23 @@ void FaceCaptureNode::addSynthDataServerCallback(const cob_people_detection::add
 	boost::lock_guard<boost::mutex> lock(active_action_mutex_);
 
 	// open the gateway for sensor messages
-	// rosrun dynamic_reconfigure dynparam set /cob_people_detection/sensor_message_gateway/sensor_message_gateway target_publishing_rate 2.0
 
 	// set the label for the images to be captured and created
 	current_label_ = goal->label;
 	rotation_deg_ = goal->rotation_deg;
 	rotation_step_ = goal->rotation_step;
 	// subscribe to face image topics
-	//message_filters::Connection input_callback_connection = sync_input_2_->registerCallback(boost::bind(&FaceCaptureNode::inputCallback, this, _1, _2));
-	face_detection_subscriber_.subscribe(node_handle_, "face_detections", 1);
-	face_detection_subscriber_.registerCallback(boost::bind(&FaceCaptureNode::inputCallbackCenter, this, _1));
+	message_filters::Subscriber<cob_people_detection_msgs::ColorDepthImageArray> face_det_sub;
+	message_filters::Subscriber<cob_people_detection_msgs::ColorDepthImageArray> head_det_sub;
+
+	face_det_sub.subscribe(node_handle_, "face_detections", 1);
+	head_det_sub.subscribe(node_handle_, "/cob_people_detection/head_detector/head_positions", 1);
+
+	message_filters::Synchronizer<message_filters::sync_policies::ApproximateTime<cob_people_detection_msgs::ColorDepthImageArray,cob_people_detection_msgs::ColorDepthImageArray> >* sync_input;
+	sync_input = new message_filters::Synchronizer<message_filters::sync_policies::ApproximateTime<cob_people_detection_msgs::ColorDepthImageArray,cob_people_detection_msgs::ColorDepthImageArray> >(2);
+
+	sync_input->connectInput(face_det_sub, head_det_sub);
+	sync_input->registerCallback(boost::bind(&FaceCaptureNode::SynthInputCallback, this, _1, _2));
 
 	if (goal->capture_mode == MANUAL)
 	{
@@ -295,17 +301,19 @@ void FaceCaptureNode::addSynthDataServerCallback(const cob_people_detection::add
 	}
 	// unsubscribe face image topics
 	//input_callback_connection.disconnect();
-	face_detection_subscriber_.unsubscribe();
+	face_det_sub.unsubscribe();
+	head_det_sub.unsubscribe();
 
 }
 
-void FaceCaptureNode::inputCallbackCenter(const cob_people_detection_msgs::ColorDepthImageArray::ConstPtr& face_detection_msg)//, const sensor_msgs::Image::ConstPtr& color_image_msg)
+void FaceCaptureNode::SynthInputCallback(const cob_people_detection_msgs::ColorDepthImageArray::ConstPtr& face_detection_msg, const cob_people_detection_msgs::ColorDepthImageArray::ConstPtr& head_detection_msg)
 {
 	// only capture images if a recording is triggered
 	if (capture_image_ == true)
 	{
 		capture_image_ = false;
-		// check number of detected faces -> accept only exactly one
+
+		// check number of detected faces -> accept if exactly one
 		int numberFaces = 0;
 		int headIndex = 0;
 		for (unsigned int i=0; i<face_detection_msg->head_detections.size(); i++)
@@ -314,6 +322,7 @@ void FaceCaptureNode::inputCallbackCenter(const cob_people_detection_msgs::Color
 			if (face_detection_msg->head_detections[i].face_detections.size() == 1)
 				headIndex = i;
 		}
+		// if previous there are multiple face detections, use the head/face closest to the image center
 		if (numberFaces > 1)
 		{
 			ROS_WARN("Multiple detections in this image. The detection closest to the image center will be saved for training.");
@@ -333,48 +342,35 @@ void FaceCaptureNode::inputCallbackCenter(const cob_people_detection_msgs::Color
 				}
 			}
 		}
-		//ROS_INFO("DONE LOOKING FOR FACES");
-		if (face_detection_msg->head_detections.size()>1) std::cout << " found: " << face_detection_msg->head_detections.size() << "Heads. Closest one will be used - index: " << headIndex << std::endl;
+		if (head_detection_msg->head_detections.size()>1) std::cout << " found: " << head_detection_msg->head_detections.size() << "Heads. Closest one will be used - index: " << headIndex << std::endl;
 
-		// convert color image to cv::Mat
+		// convert color image to cv::Mat for head and face msg. (face msg has gone through background filtering)
 		cv_bridge::CvImageConstPtr color_image_ptr;
-		cv::Mat color_image,depth_image;
-		//convertColorImageMessageToMat(color_image_msg, color_image_ptr, color_image);
-		sensor_msgs::ImageConstPtr msgPtr = boost::shared_ptr<sensor_msgs::Image const>(&(face_detection_msg->head_detections[headIndex].color_image), voidDeleter);
-		convertColorImageMessageToMat(msgPtr, color_image_ptr, color_image);
+		cv::Mat head_color, head_depth, face_color, face_depth;
+		sensor_msgs::ImageConstPtr msgPtr = boost::shared_ptr<sensor_msgs::Image const>(&(head_detection_msg->head_detections[headIndex].color_image), voidDeleter);
+		convertColorImageMessageToMat(msgPtr, color_image_ptr, head_color);
+		msgPtr = boost::shared_ptr<sensor_msgs::Image const>(&(head_detection_msg->head_detections[headIndex].depth_image), voidDeleter);
+		convertDepthImageMessageToMat(msgPtr, color_image_ptr, head_depth);
+
+		msgPtr = boost::shared_ptr<sensor_msgs::Image const>(&(face_detection_msg->head_detections[headIndex].color_image), voidDeleter);
+		convertColorImageMessageToMat(msgPtr, color_image_ptr, face_color);
 		msgPtr = boost::shared_ptr<sensor_msgs::Image const>(&(face_detection_msg->head_detections[headIndex].depth_image), voidDeleter);
-		convertDepthImageMessageToMat(msgPtr, color_image_ptr, depth_image);
+		convertDepthImageMessageToMat(msgPtr, color_image_ptr, face_depth);
 
 		// store image and label
 		const cob_people_detection_msgs::Rect& face_rect = face_detection_msg->head_detections[headIndex].face_detections[0];
-		const cob_people_detection_msgs::Rect& head_rect = face_detection_msg->head_detections[headIndex].head_detection;
+		const cob_people_detection_msgs::Rect& head_rect = head_detection_msg->head_detections[headIndex].head_detection;
 		cv::Rect face_bounding_box(face_rect.x, face_rect.y, face_rect.width, face_rect.height);
 		cv::Rect head_bounding_box(head_rect.x, head_rect.y, head_rect.width, head_rect.height);
-		cv::Mat img_color = color_image;
-		cv::Mat img_depth = depth_image;
-
-		//std::cout << "sending to face feature orientation score" << std::endl;
-		//float score = face_recognizer_trainer_.FaceFeatureOrientationScore(img_color, img_depth);
-		//save original, create and save additional rotated views
-		//std::cout << " IMAGE ACHIEVED ORIENTATION SCORE: " << score << std::endl;
-
-		/*if (( number_captured_images_ < 1 && score < center_score) || (number_captured_images_ < 5 && score < off_center_score_1) || (number_captured_images_ < 9 && score < off_center_score_2) )
-		{
-			if (face_recognizer_trainer_.addSynthFace(img_color,img_depth,face_bounding_box,head_bounding_box , current_label_, rotation_deg_, rotation_step_, face_images_,face_depthmaps_)==ipa_Utils::RET_FAILED)
-			{
-				ROS_WARN("Normalizing failed");
-				return;
-			}
-		}*/
 
 		// create additional, rotated views of stored image
-		if (face_recognizer_trainer_.addSynthFace(img_color,img_depth,face_bounding_box,head_bounding_box , current_label_, rotation_deg_, rotation_step_, face_images_,face_depthmaps_)==ipa_Utils::RET_FAILED)
+		//if (face_recognizer_trainer_.addSynthFace(img_color,img_depth,face_bounding_box,head_bounding_box , current_label_, rotation_deg_, rotation_step_, face_images_,face_depthmaps_)==ipa_Utils::RET_FAILED)
+		if (face_recognizer_trainer_.addSynthFace(face_color,face_depth,head_color,head_depth,face_bounding_box,head_bounding_box , current_label_, rotation_deg_, rotation_step_, face_images_,face_depthmaps_)==ipa_Utils::RET_FAILED)
 		{
 			ROS_WARN("Normalizing failed");
+			number_captured_images_+=face_images_.size()-number_captured_images_;
 			return;
 		}
-		std::cout << "face_images_: " << face_images_.size() << "face_depthmaps: " << face_depthmaps_.size() << std::endl;
-
 		number_captured_images_+=face_images_.size()-number_captured_images_;		// increase number of captured images
 
 		ROS_INFO("Face number %d captured.", number_captured_images_);
@@ -385,7 +381,6 @@ void FaceCaptureNode::inputCallbackCenter(const cob_people_detection_msgs::Color
 void FaceCaptureNode::inputCallback(const cob_people_detection_msgs::ColorDepthImageArray::ConstPtr& face_detection_msg)//, const sensor_msgs::Image::ConstPtr& color_image_msg)
 {
 	//ROS_INFO("inputCallback");
-
 	// only capture images if a recording is triggered
 	if (capture_image_ == true)
 	{

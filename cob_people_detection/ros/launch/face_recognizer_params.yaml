@@ -47,7 +47,7 @@ norm_illumination: true
 
 # toggle 3D face alignement
 # bool
-norm_align: true
+norm_align: false
 
 # toggle processing for extreme conditions
 # bool

@@ -127,6 +127,7 @@ RgbdDbRecognitionTest::RgbdDbRecognitionTest(ros::NodeHandle nh)
 	std::cout << "Labels to recognize: " << std::endl;
 	for (int j = 0; j<identification_labels_to_recognize_.size(); j++) std::cout << identification_labels_to_recognize_[j] << std::endl;
 
+	std::cout << "Data Directory? " << data_directory_ << std::endl;
 	// initialize face recognizer
 	face_recognizer_.init(data_directory_, norm_size,norm_illumination,norm_align,norm_extreme_illumination, metric, debug, identification_labels_to_recognize_,recognition_method, feature_dimension, use_unknown_thresh, use_depth);
 
@@ -330,7 +331,7 @@ void RgbdDbRecognitionTest::TestRecognition()
 						rec=ori=false;
 						set_imgs++;
 						face_recognizer_.recognizeFaces(bmp_v, xyz_v, face_rect_v, label_v, labels, scores);
-						std::cout << "compare " << sets_[set] << " with " << label_v[0][0].substr(0,6) << std::endl;
+						//std::cout << "compare " << sets_[set] << " with " << label_v[0][0].substr(0,6) << std::endl;
 						if (label_v[0][0].substr(0,6) == sets_[set])
 						{
 							set_rec++;
@@ -381,7 +382,7 @@ void RgbdDbRecognitionTest::TestRecognition()
 
 	output_textfile << "\n";
 	output_textfile << "Totals: \nImages tested: " << total_imgs << " - Images correctly labeled: " << total_rec << "\n Percentage correct: " << (float) total_rec/total_imgs << "\n";
-	output_textfile << "Orientation correct: " << total_persp << " - Orientation and label correct: " << total_persp_rec << "\n Percentages - orientation: " << (float)total_persp/total_imgs << ", label and orientation: " << (float) total_persp_rec/total_imgs;
+	if (trans_labels_)output_textfile << "Orientation correct: " << total_persp << " - Orientation and label correct: " << total_persp_rec << "\n Percentages - orientation: " << (float)total_persp/total_imgs << ", label and orientation: " << (float) total_persp_rec/total_imgs;
 	output_textfile.close();
 	std::cout << "test completed" << std::endl;
 	ros::shutdown();

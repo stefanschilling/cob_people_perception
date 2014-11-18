@@ -113,7 +113,7 @@ virtual unsigned long init(std::string data_directory, int norm_size,bool norm_i
 	/// @return Return code
   virtual unsigned long addFace(cv::Mat& color_image, cv::Mat& depth_image,cv::Rect& face_bounding_box,cv::Rect& head_bounding_box,std::string label, std::vector<cv::Mat>& face_images,std::vector<cv::Mat>& face_depthmaps);
 
-  virtual unsigned long addSynthFace(cv::Mat& color_image, cv::Mat& depth_image,cv::Rect& face_bounding_box,cv::Rect& head_bounding_box,std::string label, float& rotation_deg, int& rotation_step, std::vector<cv::Mat>& face_images,std::vector<cv::Mat>& face_depthmaps);
+  virtual unsigned long addSynthFace(cv::Mat& face_color, cv::Mat& face_depth,cv::Mat& head_color, cv::Mat& head_depth,cv::Rect& face_bounding_box,cv::Rect& head_bounding_box,std::string label, float& rotation_deg, int& rotation_step, std::vector<cv::Mat>& face_images,std::vector<cv::Mat>& face_depthmaps);
 
 	/// Updates the labels of a stored person.
 	/// @param old_label The label in the database which shall be replaced by the new label

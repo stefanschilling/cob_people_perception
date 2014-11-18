@@ -125,12 +125,10 @@ bool FaceNormalizer::recordFace(cv::Mat& RGB,cv::Mat& XYZ)
 
 bool FaceNormalizer::synthFace(cv::Mat &RGB, cv::Mat& XYZ, cv::Size& norm_size, std::vector<cv::Mat>& images, std::vector<cv::Mat>& depthmaps, float& step_size, int& step_no)
 {
-	//std::cout << " ADDING SYNTH FACES - FACE NORMALIZER" << std::endl;
-
 	cv::Mat GRAY,GRAY2;
 	cv::cvtColor(RGB,GRAY,CV_RGB2GRAY);
 
-	//trim image border if width and or height not even
+	//trim image border if width and or height are not even numbers
 	if( GRAY.rows & (2) != 0 )
 	{
 		XYZ=XYZ(cv::Rect(0,0,XYZ.cols,XYZ.rows-1));
@@ -355,70 +353,69 @@ void FaceNormalizer::GammaDoG(cv::Mat& input_img)
 
 void FaceNormalizer::GammaDCT(cv::Mat& input_img)
 {
-  cv::Mat img=cv::Mat(input_img.rows,input_img.cols,CV_8UC1);
-  if(input_img.channels()==3)
-  {
-    extractVChannel(input_img,img);
-  }
-  else
-  {
-    img=input_img;
-  }
+	cv::Mat img=cv::Mat(input_img.rows,input_img.cols,CV_8UC1);
+	if(input_img.channels()==3)
+	{
+		extractVChannel(input_img,img);
+	}
+	else
+	{
+		img=input_img;
+	}
 
-  // Dct conversion on logarithmic image
-  if( img.rows&2!=0 )
-  {
-    img=img(cv::Rect(0,0,img.cols,img.rows-1));
-    input_img=img(cv::Rect(0,0,img.cols,img.rows-1));
-  }
-  if( img.cols&2!=0 )
-  {
-    img=img(cv::Rect(0,0,img.cols-1,img.rows));
-    input_img=img(cv::Rect(0,0,img.cols-1,img.rows));
-  }
+	// Dct conversion on logarithmic image
+	if( img.rows&2!=0 )
+	{
+		img=img(cv::Rect(0,0,img.cols,img.rows-1));
+		input_img=img(cv::Rect(0,0,img.cols,img.rows-1));
+	}
+	if( img.cols&2!=0 )
+	{
+		img=img(cv::Rect(0,0,img.cols-1,img.rows));
+		input_img=img(cv::Rect(0,0,img.cols-1,img.rows));
+	}
 
-  cv::equalizeHist(img,img);
-  img.convertTo(img,CV_32FC1);
-  cv::Scalar mu,sigma;
-  cv::meanStdDev(img,mu,sigma);
+	cv::equalizeHist(img,img);
+	img.convertTo(img,CV_32FC1);
+	cv::Scalar mu,sigma;
+	cv::meanStdDev(img,mu,sigma);
 
-  double C_00=log(mu.val[0])*sqrt(img.cols*img.rows);
+	double C_00=log(mu.val[0])*sqrt(img.cols*img.rows);
 
-//----------------------------
-  cv::pow(img,0.2,img);
-  cv::Mat imgdummy;
-  img.convertTo(imgdummy,CV_8UC1);
-  cv::dct(img,img);
+	//----------------------------
+	cv::pow(img,0.2,img);
+	cv::Mat imgdummy;
+	img.convertTo(imgdummy,CV_8UC1);
+	cv::dct(img,img);
 
-  //---------------------------------------
-  img.at<float>(0,0)=C_00;
-  img.at<float>(0,1)/=10;
-  img.at<float>(0,2)/=10;
+	//---------------------------------------
+	img.at<float>(0,0)=C_00;
+	img.at<float>(0,1)/=10;
+	img.at<float>(0,2)/=10;
 
-  img.at<float>(1,0)/=10;
-  img.at<float>(1,1)/=10;
+	img.at<float>(1,0)/=10;
+	img.at<float>(1,1)/=10;
 
-  //--------------------------------------
+	//--------------------------------------
 
-  cv::idct(img,img);
-  cv::normalize(img,img,0,255,cv::NORM_MINMAX);
+	cv::idct(img,img);
+	cv::normalize(img,img,0,255,cv::NORM_MINMAX);
 
-  img.convertTo(img,CV_8UC1);
-  //cv::blur(img,img,cv::Size(3,3));
+	img.convertTo(img,CV_8UC1);
+	//cv::blur(img,img,cv::Size(3,3));
 
-  if(input_img.channels()==3)
-  {
-    subVChannel(input_img,img);
-  }
-  else
-  {
-    input_img=img;
-  }
+	if(input_img.channels()==3)
+	{
+		subVChannel(input_img,img);
+	}
+	else
+	{
+		input_img=img;
+	}
 }
 
 bool FaceNormalizer::synth_head_poses(cv::Mat& img,cv::Mat& depth, cv::Size& norm_size, std::vector<cv::Mat>& images, std::vector<cv::Mat>& depthmaps, float& step_size, int& step_no)
 {
-	std::cout << " ADDING SYNTH FACES - FACE NORMALIZER" << std::endl;
 	//variables for checkp
 	int src_valid_pts=0;
 	int min_valid_pts;
@@ -444,18 +441,20 @@ bool FaceNormalizer::synth_head_poses(cv::Mat& img,cv::Mat& depth, cv::Size& nor
 		//exclude faces that are too small for the head bounding box
 		if (face->width > 0.4*img.cols && face->height > 0.4*img.rows)
 		{
-			cv::Mat synth_img;
-			img(cv::Rect(face->x,face->y, face->width,face->height)).copyTo(synth_img);
-			cv::Mat synth_dm = depth(cv::Rect(face->x,face->y, face->width,face->height));
-			normalize_radiometry(synth_img);
+			cv::Mat source_img;
+			img(cv::Rect(face->x,face->y, face->width,face->height)).copyTo(source_img);
+			cv::Mat source_dm = depth(cv::Rect(face->x,face->y, face->width,face->height));
+			normalize_radiometry(source_img);
 			//TODO
 			//test resizing vs roi around nose used in other functions of face_normalizer
 			// DONE. Using ROI has negative influence on recognition.
-			cv::resize(synth_img,synth_img,norm_size,0,0);
-			cv::resize(synth_dm,synth_dm,norm_size,0,0);
+			cv::resize(source_img,source_img,norm_size,0,0);
+			cv::resize(source_dm,source_dm,norm_size,0,0);
+			//isolate face/remove background
+			isolateFace(source_img, source_dm);
 			//save resulting image and depth mat in cv::Mat Vector
-			images.push_back(synth_img);
-			depthmaps.push_back(synth_dm);
+			images.push_back(source_img);
+			depthmaps.push_back(source_dm);
 			img_count++;
 			//std::cout << "added source img and depth\n";
 		}
@@ -723,7 +722,6 @@ bool FaceNormalizer::synth_head_poses(cv::Mat& img,cv::Mat& depth, cv::Size& nor
 		}
 		imgs_per_axis.push_back(img_added_on_axis);
 	}
-	std::cout<< "images added through rotation: " << img_added << std::endl;
 	img_count = img_count+img_added;
 
 	return true;
@@ -742,7 +740,10 @@ bool FaceNormalizer::synth_head_poses(cv::Mat& img,cv::Mat& depth, std::string t
 	CvMemStorage* m_storage = cvCreateMemStorage(0);
 	IplImage imgPtr = (IplImage)img;
 
-	//add source img if face is found in it with required face.
+	int img_added=0;
+	int img_added_on_axis=0;
+
+	//add source img if face is found in it.
 	//face image is normalized and resized as in normalizeFace
 	CvSeq* faces = cvHaarDetectObjects(&imgPtr,	m_face_cascade,	m_storage, faces_increase_search_scale, faces_drop_groups, CV_HAAR_DO_CANNY_PRUNING, cv::Size(faces_min_search_scale_x, faces_min_search_scale_y));
 	if (faces->total ==1)
@@ -772,14 +773,17 @@ bool FaceNormalizer::synth_head_poses(cv::Mat& img,cv::Mat& depth, std::string t
 			cv::FileStorage fs(synth_depth_path, FileStorage::WRITE);
 			fs << "depthmap" << synth_dm;
 			fs.release();
-			img_count++;
+			img_added++;
+			img_added_on_axis++;
 			std::cout << "added source img and depth\n";
 		}
 	}
 
+	//add center / no axis entry to imgs_per_axis vector
+	imgs_per_axis.push_back(img_added_on_axis);
+	img_added_on_axis=0;
+
 	Eigen::Vector3f x_new,y_new,z_new, origin,temp,lefteye,nose,righteye,eye_middle;
-	int img_added=0;
-	int img_added_on_axis=1;
 	//use face features to determine axis of rotation?
 	if(config_.align)
 	{
@@ -887,6 +891,7 @@ bool FaceNormalizer::synth_head_poses(cv::Mat& img,cv::Mat& depth, std::string t
 	float rot_step = step_size;
 	//std::cout<<"Synthetic POSES"<<std::endl;
 
+/*
 	//find number of valid points in src
 	int src_valid_pts=0;
 	int min_valid_pts;
@@ -899,7 +904,8 @@ bool FaceNormalizer::synth_head_poses(cv::Mat& img,cv::Mat& depth, std::string t
 	}
 	min_valid_pts = 0.5* src_valid_pts;
 	std::cout << "valid pts in src before rotation: " << src_valid_pts << std::endl;
-	std::cout << "min surviving points for rotated picture to be considered: " << min_valid_pts;
+	std::cout << "min surviving points for rotated picture to be considered: " << min_valid_pts << std::endl;
+*/
 
 	if (N>0)
 	{
@@ -917,7 +923,7 @@ bool FaceNormalizer::synth_head_poses(cv::Mat& img,cv::Mat& depth, std::string t
 			//rotate head down-right
 			else if(i>=N/8&&i<2*N/8)
 			{
-				if (imgs_per_axis.size()%8 < 1)
+				if (imgs_per_axis.size()%9 < 2)
 				{
 					imgs_per_axis.push_back(img_added_on_axis);
 					//std::cout << "changed axis, pushed back entry: " << img_added_on_axis <<std::endl;
@@ -928,7 +934,7 @@ bool FaceNormalizer::synth_head_poses(cv::Mat& img,cv::Mat& depth, std::string t
 			//rotate head right
 			else if(i>=2*N/8&&i<3*N/8)
 			{
-				if (imgs_per_axis.size()%8 < 2)
+				if (imgs_per_axis.size()%9 < 3)
 				{
 					imgs_per_axis.push_back(img_added_on_axis);
 					//std::cout << "changed axis, pushed back entry: " << img_added_on_axis <<std::endl;
@@ -939,7 +945,7 @@ bool FaceNormalizer::synth_head_poses(cv::Mat& img,cv::Mat& depth, std::string t
 			//rotate head up-right
 			else if(i>=3*N/8&&i<4*N/8)
 			{
-				if (imgs_per_axis.size()%8 < 3)
+				if (imgs_per_axis.size()%9 < 4)
 				{
 					imgs_per_axis.push_back(img_added_on_axis);
 					//std::cout << "changed axis, pushed back entry: " << img_added_on_axis <<std::endl;
@@ -950,7 +956,7 @@ bool FaceNormalizer::synth_head_poses(cv::Mat& img,cv::Mat& depth, std::string t
 			//rotate head up
 			else if(i>=4*N/8&&i<5*N/8)
 			{
-				if (imgs_per_axis.size()%8 < 4)
+				if (imgs_per_axis.size()%9 < 5)
 				{
 					imgs_per_axis.push_back(img_added_on_axis);
 					//std::cout << "changed axis, pushed back entry: " << img_added_on_axis <<std::endl;
@@ -961,7 +967,7 @@ bool FaceNormalizer::synth_head_poses(cv::Mat& img,cv::Mat& depth, std::string t
 			//rotate head up-left
 			else if(i>=5*N/8&&i<6*N/8)
 			{
-				if (imgs_per_axis.size()%8 < 5)
+				if (imgs_per_axis.size()%9 < 6)
 				{
 					imgs_per_axis.push_back(img_added_on_axis);
 					//std::cout << "changed axis, pushed back entry: " << img_added_on_axis <<std::endl;
@@ -972,7 +978,7 @@ bool FaceNormalizer::synth_head_poses(cv::Mat& img,cv::Mat& depth, std::string t
 			//rotate head left
 			else if(i>=6*N/8&&i<7*N/8)
 			{
-				if (imgs_per_axis.size()%8 < 6)
+				if (imgs_per_axis.size()%9 < 7)
 				{
 					imgs_per_axis.push_back(img_added_on_axis);
 					//std::cout << "changed axis, pushed back entry: " << img_added_on_axis <<std::endl;
@@ -983,7 +989,7 @@ bool FaceNormalizer::synth_head_poses(cv::Mat& img,cv::Mat& depth, std::string t
 			//rotate head down-left
 			else if(i>=7*N/8&&i<N)
 			{
-				if (imgs_per_axis.size()%8 < 7)
+				if (imgs_per_axis.size()%9 < 8)
 				{
 					imgs_per_axis.push_back(img_added_on_axis);
 					//std::cout << "changed axis, pushed back entry: " << img_added_on_axis <<std::endl;
@@ -1034,6 +1040,8 @@ bool FaceNormalizer::synth_head_poses(cv::Mat& img,cv::Mat& depth, std::string t
 			//normalize detections of sufficient size as in normalizeFace
 			bool detect_face =true;
 			//std::cout << "detect face" << std::endl;
+			int min_valid_pts = 100;
+
 			bool img_valid = projectPointCloudSynth(img,workmat,imgres,dmres,min_valid_pts);
 			if (img_valid && detect_face)
 			{

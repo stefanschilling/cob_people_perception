@@ -33,7 +33,7 @@ bool create_file_lists(std::string& path, std::vector<std::string>& xmls)
 	else return false;
 }
 
-void rewrite_tdata(std::string& training_path, std::string& added_label, int& img_count, std::vector<int>& imgs_per_axis, bool separation)
+void rewrite_tdata(std::string& training_path, std::string& added_label, int& img_count, std::vector<int>& imgs_per_axis, bool separation, int& imgs_to_axis)
 {
 	std::cout << "write new tdata";
 	//write new tdata2 file for newly created image files
@@ -67,10 +67,8 @@ void rewrite_tdata(std::string& training_path, std::string& added_label, int& im
 	}
 
 	//create tdata2.xml with newly added images.
-	int k=0;
 	int done=0;
 	std::string stamp,label;
-	std::cout << "Status:" <<std::endl;
 	cv::FileStorage fileStorageWrite(training_path+"tdata2.xml", cv::FileStorage::WRITE);
 	if (fileStorageWrite.isOpened())
 	{
@@ -96,16 +94,20 @@ void rewrite_tdata(std::string& training_path, std::string& added_label, int& im
 			fileStorageWrite << tag3.str().c_str() << face_depths[i].c_str();
 		}
 
-		int done = old_number_entries;
+		done = old_number_entries;
+
+		std::cout <<"imgs per axis größe = 9? "<< imgs_per_axis.size() << std::endl;
+		std::cout <<"einträge: " << std::endl;
 		for (int i =0; i < imgs_per_axis.size();i++)
 		{
+			std::cout << "imgs per axis eintrag " << i << " größe: " << imgs_per_axis[i] << std::endl;
 			for (int j=0; j < imgs_per_axis[i]; j++)
 			{
 				std::ostringstream tag, tag2, tag3;
 				std::ostringstream shortname_img, shortname_depth;
 				std::ostringstream convert;
-				if (j<2) convert << 0;
-				if (j>=2) convert << (i%8)+1;
+				if (j<imgs_to_axis) convert << 0;
+				if (j>=imgs_to_axis) convert << (i%9);
 				stamp = convert.str();
 				label = added_label;
 				//stamp label with axis+orientation if separation is required
@@ -135,13 +137,14 @@ void rewrite_tdata(std::string& training_path, std::string& added_label, int& im
 		face_depths.clear();
 		imgs_per_axis.clear();
 	}
-	std::cout << " - writing completed, imgs_per_axis cleared: " << imgs_per_axis.size() <<std::endl;
+	std::cout << " new images: " << img_count << " - writing done for: " << done << std::endl;
+	std::cout << " - writing completed. " <<std::endl;
 }
 
 int main(int argc, const char *argv[])
 {
 	//set up variables
-	int img_count, img_count_current, step_size, step_no;
+	int img_count, img_count_current, step_size, step_no, sep;
 	float step_size_rad;
 	std::vector<int> imgs_per_axis;
 	step_size=step_no=0;
@@ -151,6 +154,10 @@ int main(int argc, const char *argv[])
 	std::vector<std::string> set_filter,perspectives;
 	cv::Mat depth, img;
 	cv::Size norm_size=cv::Size(100,100);
+
+	//initialize feature related vars that may remain uninitialized otherwise
+	features = "";
+	sep=0;
 
 	//create directories for synth images and xyz-mats if they do not exist
 	boost::filesystem::path synth_depth_path = training_path + "synth_depth_test";
@@ -193,23 +200,25 @@ int main(int argc, const char *argv[])
 	{
 		std::cout << "Number of steps per rotation (total attempted images: 8x step number)" <<std::endl;
 		std::cin >> step_no;
+		//use features for rotation axis?
+		std::cout << "use face features for rotation axis? [y,n]";
+		std::cin >> features;
+
+		//1 direction at a time?
+		std::cout << "Create seperate labels per axis and orientation of rotation? [0:no, 1: yes]" << std::endl;
+		std::cin >> sep;
+
 	}
+	//convert entries to settings for synth face
 	//step_size_rad = (float)step_size*0.0174533;
 	step_size_rad = (float)step_size/100;
-
-	//use features for rotation axis?
-	std::cout << "use face features for rotation axis? [y,n]";
-	std::cin >> features;
-
 	bool separation=false;
-	int sep;
-	//1 direction at a time?
-	std::cout << "Create seperate labels per axis and orientation of rotation? [0:no, 1: yes]" << std::endl;
-	std::cin >> sep;
-
+	int imgs_to_axis;
 	if (sep !=0)
 	{
 		std::cout << "separation = true: ";
+		std::cout << "Imgs to axis stamp: " <<std::endl;
+		std::cin >> imgs_to_axis;
 		separation = true;
 		std::cout << separation << std::endl;
 	}
@@ -261,7 +270,6 @@ int main(int argc, const char *argv[])
 		src_set = set_filter[j];
 		path = "/home/stefan/rgbd_db_heads/"+src_set;
 		create_file_lists(path, xmls);
-		std::cout << "source files for this set: " << xmls.size() << std::endl;
 
 		label = src_set;
 
@@ -290,9 +298,9 @@ int main(int argc, const char *argv[])
 					//cv::waitKey();
 					if(fn.synthFace(img,depth,norm_size,training_path,img_count,step_size_rad, step_no,imgs_per_axis))
 					{
-						std::cout << "images added from source image " << bmp_path << ": " << img_count-img_count_current <<std::endl;
+						std::cout << "\nimages added from source image " << bmp_path << ": " << img_count-img_count_current <<std::endl;
 					}
-					float score;
+//					float score;
 //					fn.frontFaceImage(img,depth,score);
 //					std::cout << bmp_path << " Score: " << score << std::endl;
 					img_count_current = img_count;
@@ -310,7 +318,7 @@ int main(int argc, const char *argv[])
 //		std::cout << std::endl;
 		//std::cout << imgs_per_axis[0] << ", "<< imgs_per_axis[1] << ", "<< imgs_per_axis[2] << ", "<< imgs_per_axis[3] << ", "<< imgs_per_axis[4] << ", "<< imgs_per_axis[5] << ", "<< imgs_per_axis[6] << ", "<< imgs_per_axis[7];
 
-		rewrite_tdata(training_path, label, img_count,imgs_per_axis,separation);
+		rewrite_tdata(training_path, label, img_count,imgs_per_axis,separation, imgs_to_axis);
 		xmls.clear();
 	}
 

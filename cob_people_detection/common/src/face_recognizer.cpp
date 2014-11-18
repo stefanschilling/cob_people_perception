@@ -232,38 +232,15 @@ unsigned long ipa_PeopleDetector::FaceRecognizer::addFace(cv::Mat& color_image, 
 	return ipa_Utils::RET_OK;
 }
 
-unsigned long ipa_PeopleDetector::FaceRecognizer::addSynthFace(cv::Mat& color_image, cv::Mat& depth_image,cv::Rect& face_bounding_box,cv::Rect& head_bounding_box,std::string label, float& rotation_deg, int& rotation_step, std::vector<cv::Mat>& face_images,std::vector<cv::Mat>& face_depthmaps)
+unsigned long ipa_PeopleDetector::FaceRecognizer::addSynthFace(cv::Mat& face_color, cv::Mat& face_depth,cv::Mat& head_color, cv::Mat& head_depth,cv::Rect& face_bounding_box,cv::Rect& head_bounding_box,std::string label, float& rotation_deg, int& rotation_step, std::vector<cv::Mat>& face_images,std::vector<cv::Mat>& face_depthmaps)
 {
-	std::cout << " ADDING SYNTH FACES - FACE RECOGNIZER" << std::endl;
-	// secure this function with a mutex
-	boost::lock_guard<boost::mutex> lock(m_data_mutex);
-	// push back original face image after normalization.
-	cv::Mat roi_color = color_image(face_bounding_box);
-	cv::Mat roi_depth_xyz = depth_image(face_bounding_box).clone();
-	cv::Size norm_size=cv::Size(m_norm_size,m_norm_size);
-	cv::Mat roi_depth;
-
-	// normalizes image according to settings (illumination, geometry, size)
-	if(!face_normalizer_.normalizeFace(roi_color,roi_depth_xyz,norm_size))
-	{
-		std::cout << "ret failed for synthFace in facerecognizer" << std::endl;
-		cv::imshow("1 the fail!",roi_color);
-		cv::waitKey();
-		return ipa_Utils::RET_FAILED;
-	}
-
-	// Save image
-	face_images.push_back(roi_color);
-	face_depthmaps.push_back(roi_depth_xyz);
-	m_face_labels.push_back(label);
-	dm_exist.push_back(true);
-
 	std::cout << "Size of vectors img vectors before synth: \nface_images: " <<face_images.size() <<
 			" - face_depthmaps: " << face_depthmaps.size() << " - m_face_labels: " << m_face_labels.size() <<
 			" -  dm_exist: " << dm_exist.size() << std::endl;
 
-	// rotate head pointcloud to create additional image data
-	std::cout << "return of face_normalizer_.synthFace: " <<face_normalizer_.synthFace(color_image, depth_image, norm_size, face_images, face_depthmaps, rotation_deg, rotation_step) << std::endl;
+	cv::Size norm_size=cv::Size(m_norm_size,m_norm_size);
+	// create additional image data by rotating the head image pointcloud
+	face_normalizer_.synthFace(head_color, head_depth, norm_size, face_images, face_depthmaps, rotation_deg, rotation_step);
 	int previous_db_size=m_face_labels.size();
 	for (int i=0; i< face_images.size()-previous_db_size;i++)
 	{
