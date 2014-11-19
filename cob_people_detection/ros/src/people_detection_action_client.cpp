@@ -359,7 +359,7 @@ void addSynthData(AddSynthDataClient& add_synth_data_client, ros::ServiceClient&
 		std::cin >> goal.continuous_mode_delay;
 	}
 
-	std::cout << "Settings to use: 0=default (0.03 (*M_PI [rad]), 7steps, single label) 1=manual ";
+	std::cout << "Settings to use: 0=default (0.03 (*M_PI [rad]), 7steps) 1=manual setting ";
 	std::cin >> goal.label_mode;
 	if (goal.label_mode == 1)
 	{

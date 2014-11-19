@@ -311,18 +311,24 @@ void FaceCaptureNode::SynthInputCallback(const cob_people_detection_msgs::ColorD
 	// only capture images if a recording is triggered
 	if (capture_image_ == true)
 	{
-		capture_image_ = false;
 
-		// check number of detected faces -> accept if exactly one
+		if (head_detection_msg->head_detections.size()==0 || face_detection_msg->head_detections[0].face_detections.size() == 0)
+		{
+			ROS_WARN("No head detected or no face in detected head area - Image can not be used!");
+			return;
+		}
+
 		int numberFaces = 0;
 		int headIndex = 0;
+
+		// check number of detected faces -> accept if exactly one per head
 		for (unsigned int i=0; i<face_detection_msg->head_detections.size(); i++)
 		{
 			numberFaces += face_detection_msg->head_detections[i].face_detections.size();
 			if (face_detection_msg->head_detections[i].face_detections.size() == 1)
 				headIndex = i;
 		}
-		// if previous there are multiple face detections, use the head/face closest to the image center
+		// if previous check found multiple face detections, use the head/face closest to the image center
 		if (numberFaces > 1)
 		{
 			ROS_WARN("Multiple detections in this image. The detection closest to the image center will be saved for training.");
@@ -346,32 +352,26 @@ void FaceCaptureNode::SynthInputCallback(const cob_people_detection_msgs::ColorD
 
 		// convert color image to cv::Mat for head and face msg. (face msg has gone through background filtering)
 		cv_bridge::CvImageConstPtr color_image_ptr;
-		cv::Mat head_color, head_depth, face_color, face_depth;
+		cv::Mat head_color, head_depth;
 		sensor_msgs::ImageConstPtr msgPtr = boost::shared_ptr<sensor_msgs::Image const>(&(head_detection_msg->head_detections[headIndex].color_image), voidDeleter);
 		convertColorImageMessageToMat(msgPtr, color_image_ptr, head_color);
 		msgPtr = boost::shared_ptr<sensor_msgs::Image const>(&(head_detection_msg->head_detections[headIndex].depth_image), voidDeleter);
 		convertDepthImageMessageToMat(msgPtr, color_image_ptr, head_depth);
-
-		msgPtr = boost::shared_ptr<sensor_msgs::Image const>(&(face_detection_msg->head_detections[headIndex].color_image), voidDeleter);
-		convertColorImageMessageToMat(msgPtr, color_image_ptr, face_color);
-		msgPtr = boost::shared_ptr<sensor_msgs::Image const>(&(face_detection_msg->head_detections[headIndex].depth_image), voidDeleter);
-		convertDepthImageMessageToMat(msgPtr, color_image_ptr, face_depth);
-
 		// store image and label
-		const cob_people_detection_msgs::Rect& face_rect = face_detection_msg->head_detections[headIndex].face_detections[0];
 		const cob_people_detection_msgs::Rect& head_rect = head_detection_msg->head_detections[headIndex].head_detection;
-		cv::Rect face_bounding_box(face_rect.x, face_rect.y, face_rect.width, face_rect.height);
 		cv::Rect head_bounding_box(head_rect.x, head_rect.y, head_rect.width, head_rect.height);
 
 		// create additional, rotated views of stored image
 		//if (face_recognizer_trainer_.addSynthFace(img_color,img_depth,face_bounding_box,head_bounding_box , current_label_, rotation_deg_, rotation_step_, face_images_,face_depthmaps_)==ipa_Utils::RET_FAILED)
-		if (face_recognizer_trainer_.addSynthFace(face_color,face_depth,head_color,head_depth,face_bounding_box,head_bounding_box , current_label_, rotation_deg_, rotation_step_, face_images_,face_depthmaps_)==ipa_Utils::RET_FAILED)
+		if (face_recognizer_trainer_.addSynthFace(head_color,head_depth,head_bounding_box , current_label_, rotation_deg_, rotation_step_, face_images_,face_depthmaps_)==ipa_Utils::RET_FAILED)
 		{
 			ROS_WARN("Normalizing failed");
 			number_captured_images_+=face_images_.size()-number_captured_images_;
 			return;
 		}
 		number_captured_images_+=face_images_.size()-number_captured_images_;		// increase number of captured images
+
+		capture_image_ = false;
 
 		ROS_INFO("Face number %d captured.", number_captured_images_);
 	}

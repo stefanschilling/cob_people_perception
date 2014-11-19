@@ -60,8 +60,4 @@ feature_dimension: 15
 # tiers of front-face scores
 #centered
 center: 10
-#slightly out of center
-off_center_1: 30
-#off-center
-off_center_2: 50
 

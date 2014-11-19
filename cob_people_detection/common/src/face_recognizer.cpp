@@ -232,7 +232,7 @@ unsigned long ipa_PeopleDetector::FaceRecognizer::addFace(cv::Mat& color_image, 
 	return ipa_Utils::RET_OK;
 }
 
-unsigned long ipa_PeopleDetector::FaceRecognizer::addSynthFace(cv::Mat& face_color, cv::Mat& face_depth,cv::Mat& head_color, cv::Mat& head_depth,cv::Rect& face_bounding_box,cv::Rect& head_bounding_box,std::string label, float& rotation_deg, int& rotation_step, std::vector<cv::Mat>& face_images,std::vector<cv::Mat>& face_depthmaps)
+unsigned long ipa_PeopleDetector::FaceRecognizer::addSynthFace(cv::Mat& head_color, cv::Mat& head_depth,cv::Rect& head_bounding_box,std::string label, float& rotation_deg, int& rotation_step, std::vector<cv::Mat>& face_images,std::vector<cv::Mat>& face_depthmaps)
 {
 	std::cout << "Size of vectors img vectors before synth: \nface_images: " <<face_images.size() <<
 			" - face_depthmaps: " << face_depthmaps.size() << " - m_face_labels: " << m_face_labels.size() <<
