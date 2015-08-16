@@ -141,6 +141,8 @@ RgbdDbRecognitionTest::RgbdDbRecognitionTest(ros::NodeHandle nh)
 	std::cout<< "perspectives_list: "<<perspectives_list<<"\n";
 	node_handle_.param("detail",detail_,false);
 	std::cout<< "output in full detail: "<<detail_<<"\n";
+	node_handle_.param("perspective_breakdown", perspective_breakdown_, false);
+	std::cout << "perspective breakdown of recognition: " << perspective_breakdown_ << "\n";
 
 	// translate set and perspective arrays from xml into string vectors
 	if (sets_list.getType() == XmlRpc::XmlRpcValue::TypeArray)
@@ -256,6 +258,12 @@ void RgbdDbRecognitionTest::TestRecognition()
 	int set_persp, set_persp_rec, total_persp, total_persp_rec;
 	set_persp=set_persp_rec=total_persp=total_persp_rec = 0;
 
+	//arrays for breakdown of recognition by perspective
+//	int tested_of_perspective[13], recognized_of_perspective[13];
+	int tested_of_perspective[14] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+	int recognized_of_perspective[14] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+	int categorized_of_perspective[14] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+
 	//get current data and time to stamp test output file with
 	out_path.append(rgbd_db_directory_);
 	time_t now;
@@ -330,12 +338,20 @@ void RgbdDbRecognitionTest::TestRecognition()
 						bool rec, ori;
 						rec=ori=false;
 						set_imgs++;
+						if (perspective_breakdown_)
+						{
+							tested_of_perspective[perspectives_[persp]] =tested_of_perspective[perspectives_[persp]]+1;
+						}
 						face_recognizer_.recognizeFaces(bmp_v, xyz_v, face_rect_v, label_v, labels, scores);
 						//std::cout << "compare " << sets_[set] << " with " << label_v[0][0].substr(0,6) << std::endl;
 						if (label_v[0][0].substr(0,6) == sets_[set])
 						{
 							set_rec++;
 							rec=true;
+							if (perspective_breakdown_)
+							{
+								recognized_of_perspective[perspectives_[persp]]= recognized_of_perspective[perspectives_[persp]]+1;
+							}
 						}
 						if (detail_)
 						{
@@ -346,6 +362,7 @@ void RgbdDbRecognitionTest::TestRecognition()
 							bool right_ori =checkOrientation(label_v[0][0][7], perspectives_[persp]);
 							if (right_ori)
 							{
+								categorized_of_perspective[perspectives_[persp]] += 1;
 								set_persp++;
 								if(rec) set_persp_rec++;
 							}
@@ -383,6 +400,25 @@ void RgbdDbRecognitionTest::TestRecognition()
 	output_textfile << "\n";
 	output_textfile << "Totals: \nImages tested: " << total_imgs << " - Images correctly labeled: " << total_rec << "\n Percentage correct: " << (float) total_rec/total_imgs << "\n";
 	if (trans_labels_)output_textfile << "Orientation correct: " << total_persp << " - Orientation and label correct: " << total_persp_rec << "\n Percentages - orientation: " << (float)total_persp/total_imgs << ", label and orientation: " << (float) total_persp_rec/total_imgs;
+	if (perspective_breakdown_)
+	{
+		std::cout << "Recognition Breakdown into Perspectives: " << std::endl;
+		output_textfile << "Recognition Breakdown into Perspectives: \n";
+		for (int i = 0; i<14; i++)
+		{
+			if (tested_of_perspective[i] > 0)
+			{
+				std::cout << "Tested of Perspective " << i << ": " << tested_of_perspective[i] << " - Recognized: " << recognized_of_perspective[i] << " - Percentage: " << (float)recognized_of_perspective[i]/tested_of_perspective[i] << std::endl;
+				output_textfile << "Tested of Perspective " << i << ": " << tested_of_perspective[i] << " - Recognized: " << recognized_of_perspective[i] << " - Percentage: " << (float)recognized_of_perspective[i]/tested_of_perspective[i] << "\n";
+				if (trans_labels_)
+					{
+					std::cout << "Correct recognition of perspective: " << categorized_of_perspective[i] << " - Percentage: " << (float)categorized_of_perspective[i]/tested_of_perspective[i] << std::endl;
+					output_textfile << "Correct recognition of perspective: " << categorized_of_perspective[i] << " - Percentage: " << (float)categorized_of_perspective[i]/tested_of_perspective[i] << "\n";
+					}
+			}
+
+		}
+	}
 	output_textfile.close();
 	std::cout << "test completed" << std::endl;
 	ros::shutdown();

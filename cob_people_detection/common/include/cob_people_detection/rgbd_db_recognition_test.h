@@ -72,6 +72,7 @@ protected:
 	bool display_timing_;
 	bool detail_;
 	bool trans_labels_;
+	bool perspective_breakdown_;
 
 	int face_found_;
 	std::vector<int> perspectives_;
