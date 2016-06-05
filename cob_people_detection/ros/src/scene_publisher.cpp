@@ -5,7 +5,7 @@
 #include<opencv/cv.h>
 #include<opencv/highgui.h>
 
-#include<pcl/common/transform.h>
+//#include<pcl/common/transform.h>
 #include<pcl/point_types.h>
 #include <pcl_ros/point_cloud.h>
 
@@ -78,7 +78,7 @@ class scene_publisher
 
 
 
-		std::cout<<"calculcating"<<std::endl;
+		//std::cout<<"calculcating"<<std::endl;
 
 		//calculate pointcloud from depthmap
 

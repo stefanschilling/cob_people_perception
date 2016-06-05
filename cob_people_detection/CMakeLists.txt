@@ -119,6 +119,10 @@ message(STATUS "PCL Include dirs: ${PCL_INCLUDE_DIRS}")
 			)
     target_link_libraries(rgbd_db_scene_publisher)
 	rosbuild_link_boost(rgbd_db_scene_publisher filesystem system)
+	
+	rosbuild_add_executable(rgbd_db_interactive_icp common/src/rgbd_db_interactive_icp.cpp)
+	target_link_libraries(rgbd_db_interactive_icp ${PCL_LIBRARIES} libvtkCommon.so libvtkFiltering.so)
+	#rosbuild_link_boost(rgbd_db_inteactive_icp)
 
 	rosbuild_add_executable(rgbd_db_head_isolator
 			common/src/rgbd_db_head_isolator.cpp

@@ -131,6 +131,8 @@ RgbdDbRecognitionTest::RgbdDbRecognitionTest(ros::NodeHandle nh)
 	// initialize face recognizer
 	face_recognizer_.init(data_directory_, norm_size,norm_illumination,norm_align,norm_extreme_illumination, metric, debug, identification_labels_to_recognize_,recognition_method, feature_dimension, use_unknown_thresh, use_depth);
 
+	std::cout << "extra call to trainRecognitionModel. Launching with same identification_labels_to_recognize_ otherwise leads to crash (unknown reason)" <<std::endl;
+	face_recognizer_.trainRecognitionModel(identification_labels_to_recognize_);
 	//Parameters for Test: database directory, sets and perspectives to use
 	XmlRpc::XmlRpcValue perspectives_list, sets_list;
 	if(!node_handle_.getParam("/cob_people_detection/rgbd_db_heads_directory", rgbd_db_directory_)) std::cout<<"PARAM NOT AVAILABLE"<<std::endl;
@@ -324,13 +326,13 @@ void RgbdDbRecognitionTest::TestRecognition()
 
 					// detect face
 					face_detector_.detectColorFaces(bmp_v, xyz_v, face_rect_v);
+
 					//std::cout << "detected faces: " << face_rect_v.size();
 					if (face_rect_v.size() >0 )
-						{
+					{
 						face_found_++;
 						//std::cout << " and " << face_rect_v[0].size();
-						}
-					//std::cout << " for a total of " << face_found_ << "faces" <<std::endl;
+					}
 
 					// if single face detection, recognize face
 					if(face_rect_v.size()==1 && face_rect_v[0].size()==1)
@@ -343,6 +345,7 @@ void RgbdDbRecognitionTest::TestRecognition()
 							tested_of_perspective[perspectives_[persp]] =tested_of_perspective[perspectives_[persp]]+1;
 						}
 						face_recognizer_.recognizeFaces(bmp_v, xyz_v, face_rect_v, label_v, labels, scores);
+
 						//std::cout << "compare " << sets_[set] << " with " << label_v[0][0].substr(0,6) << std::endl;
 						if (label_v[0][0].substr(0,6) == sets_[set])
 						{
@@ -393,6 +396,7 @@ void RgbdDbRecognitionTest::TestRecognition()
 		set_rec=set_imgs=0;
 		set_persp=set_persp_rec=0;
 	}
+
 	//output for overall totals
 	std::cout << "Totals: \nImages tested: " << total_imgs << " - Images correctly labeled: " << total_rec << "\n Percentage correct: " << (float) total_rec/total_imgs << "\n";
 	if (trans_labels_) std::cout << "Orientation correct: " << total_persp << " - Orientation and label correct: " << total_persp_rec << "\n Percentages - orientation: " << (float)total_persp/total_imgs << ", label and orientation: " << (float) total_persp_rec/total_imgs;

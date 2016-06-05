@@ -196,7 +196,7 @@ bool RgbdDbManualPublisher::checkFile()
 {
 	bmp_stream_.str("");
 	xyz_stream_.str("");
-	// add requested perspective and shot to complete path, check i files exist
+	// add requested perspective and shot to complete path, check if files exist
 	std::string path;
 	path.append(path_to_db_);
 	path.append(sets_[set_]);
@@ -205,6 +205,7 @@ bool RgbdDbManualPublisher::checkFile()
 
 	bmp_stream_ << "_c.bmp";
 	xyz_stream_ << "_d.xml";
+	//std::cout << "checking if file exists: " << bmp_stream_.str() << " || " << xyz_stream_.str() <<std::endl;
 
 	// check if files exists
 	std::ifstream bmp_test(bmp_stream_.str().c_str());
@@ -288,10 +289,11 @@ void RgbdDbManualPublisher::keyLoop()
 	bool valid=false;
 	int persp, shot;
 	std::string set;
-	std::cout << "\n7, 9: change set - 4, 6: previous - next perspective - 1, 3: prev - next shot \n5: Create Message - 2: publish \nq - Quit\n";
+	//std::cout << "\n7, 9: change set - 4, 6: previous - next perspective - 1, 3: prev - next shot \n5: Create Message - 2: publish \nq - Quit\n";
 	do
 	{
 		std::cout << "Selection: " << sets_[set_] << " " << persp_ << " " << shot_;
+		std::cout << "\n7, 9: change set - 4, 6: previous - next perspective - 1, 3: prev - next shot \n5: Create Message - 2: publish \nq - Quit\n";
 		if (rdy) std::cout << " | Ready to publish: " << set << " " << persp << " " << shot;
 		std::cout << "\n";
 		key = getch();

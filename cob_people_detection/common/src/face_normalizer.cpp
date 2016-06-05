@@ -555,7 +555,6 @@ bool FaceNormalizer::synth_head_poses(cv::Mat& img,cv::Mat& depth, cv::Size& nor
 	T_norm= pcl::getTransformation(float(-nose[0]), float(-nose[1]), float(-nose[2]), 0.0, 0.0, 0.0);
 	// viewing offset of normalized perspective
 	double view_offset=nose[2];
-	view_offset = nose[2];
 	Eigen::Translation<float,3> translation=Eigen::Translation<float,3>(0, 0, view_offset);
 
 	Eigen::AngleAxis<float> alpha;
@@ -1009,9 +1008,9 @@ bool FaceNormalizer::synth_head_poses(cv::Mat& img,cv::Mat& depth, std::string t
 			cv::Vec3f* ptr=workmat.ptr<cv::Vec3f>(0,0);
 			Eigen::Vector3f pt;
 
-//			std::cout << "random point before and after rotation (65,65)";
-//			std::cout << depth.at<cv::Vec3f>(65,65)[0] << "," << depth.at<cv::Vec3f>(65,65)[1] << "," << depth.at<cv::Vec3f>(65,65)[2];
-//			std::cout << std::endl;
+			std::cout << "random point before and after rotation (65,65)";
+			std::cout << depth.at<cv::Vec3f>(65,65)[0] << "," << depth.at<cv::Vec3f>(65,65)[1] << "," << depth.at<cv::Vec3f>(65,65)[2];
+			std::cout << std::endl;
 			for(int j=0;j<img.total();j++)
 			{
 				pt<<(*ptr)[0],(*ptr)[1],(*ptr)[2];
@@ -1024,10 +1023,9 @@ bool FaceNormalizer::synth_head_poses(cv::Mat& img,cv::Mat& depth, std::string t
 				(*ptr)[2]=pt[2];
 				ptr++;
 			}
-//			std::cout << workmat.at<cv::Vec3f>(65,65)[0] << "," << workmat.at<cv::Vec3f>(65,65)[1] << "," << workmat.at<cv::Vec3f>(65,65)[2];
-//			std::cout << std::endl;
+			std::cout << workmat.at<cv::Vec3f>(65,65)[0] << "," << workmat.at<cv::Vec3f>(65,65)[1] << "," << workmat.at<cv::Vec3f>(65,65)[2];
+			std::cout << std::endl;
 //			std::cout << "project pcl" << std::endl;
-			//projectPointCloudSynth(img,workmat,imgres,dmres,min_valid_pts);
 
 			//TODO:
 			//confirm if created image is recognized as face? - DONE
@@ -1051,7 +1049,7 @@ bool FaceNormalizer::synth_head_poses(cv::Mat& img,cv::Mat& depth, std::string t
 				if (faces->total ==1)
 				{
 					cv::Rect* face = (cv::Rect*)cvGetSeqElem(faces, 0);
-					//exclude faces that are too small for the head bounding box
+					//exclude faces that are too small in relation to head bounding box
 					if (face->width > 0.4*img.cols && face->height > 0.4*img.rows)
 					{
 						cv::Mat synth_img=imgres(cv::Rect(face->x,face->y, face->width,face->height));
@@ -1059,6 +1057,7 @@ bool FaceNormalizer::synth_head_poses(cv::Mat& img,cv::Mat& depth, std::string t
 						normalize_radiometry(synth_img);
 						cv::resize(synth_img,synth_img,norm_size,0,0);
 						cv::resize(synth_dm,synth_dm,norm_size,0,0);
+
 						//save resulting image and depth mat
 						std::ostringstream synth_id_str;
 						synth_id_str << img_count+img_added;
@@ -1122,101 +1121,99 @@ bool FaceNormalizer::projectPointCloud(cv::Mat& img, cv::Mat& depth, cv::Mat& im
 
    if(channels==3)
    {
-    cv::add(img_res,0,img_res);
-    cv::add(depth_res,0,depth_res);
-   // assign color values to calculated image coordinates
-   cv::Vec3b* pc_rgb_ptr=pc_rgb.ptr<cv::Vec3b>(0,0);
+		cv::add(img_res,0,img_res);
+		cv::add(depth_res,0,depth_res);
+		// assign color values to calculated image coordinates
+		cv::Vec3b* pc_rgb_ptr=pc_rgb.ptr<cv::Vec3b>(0,0);
 
 
-   cv::Mat occ_grid=cv::Mat::ones(sensor_size,CV_32FC3);
-   cv::Mat img_cum=cv::Mat::zeros(sensor_size,CV_32FC3);
-   cv::Vec3f occ_inc=cv::Vec3f(1,1,1);
-   for(int i=0;i<pc_proj.rows;++i)
-     {
-       cv::Vec2f txty=*pc_proj_ptr;
-       tx=(int)round(txty[0]);
-       ty=(int)round(txty[1]);
+		cv::Mat occ_grid=cv::Mat::ones(sensor_size,CV_32FC3);
+		cv::Mat img_cum=cv::Mat::zeros(sensor_size,CV_32FC3);
+		cv::Vec3f occ_inc=cv::Vec3f(1,1,1);
+		for(int i=0;i<pc_proj.rows;++i)
+		{
+			cv::Vec2f txty=*pc_proj_ptr;
+			tx=(int)round(txty[0]);
+			ty=(int)round(txty[1]);
 
 
-       if (ty>1 && tx>1 && ty<sensor_size.height-1 && tx<sensor_size.width-1 && !isnan(ty) && !isnan(tx) )
-       {
-            img_cum.at<cv::Vec3b>(ty,tx)+=(*pc_rgb_ptr);
-            img_cum.at<cv::Vec3f>(ty+1,tx)+=(*pc_rgb_ptr);
-            img_cum.at<cv::Vec3f>(ty-1,tx)+=(*pc_rgb_ptr);
-            img_cum.at<cv::Vec3f>(ty,tx-1)+=(*pc_rgb_ptr);
-            img_cum.at<cv::Vec3f>(ty,tx+1)+=(*pc_rgb_ptr);
+			if (ty>1 && tx>1 && ty<sensor_size.height-1 && tx<sensor_size.width-1 && !isnan(ty) && !isnan(tx) )
+			{
+				img_cum.at<cv::Vec3b>(ty,tx)+=(*pc_rgb_ptr);
+				img_cum.at<cv::Vec3f>(ty+1,tx)+=(*pc_rgb_ptr);
+				img_cum.at<cv::Vec3f>(ty-1,tx)+=(*pc_rgb_ptr);
+				img_cum.at<cv::Vec3f>(ty,tx-1)+=(*pc_rgb_ptr);
+				img_cum.at<cv::Vec3f>(ty,tx+1)+=(*pc_rgb_ptr);
 
-            occ_grid.at<cv::Vec3f>(ty,tx)+=  occ_inc;
-            occ_grid.at<cv::Vec3f>(ty+1,tx)+=occ_inc;
-            occ_grid.at<cv::Vec3f>(ty-1,tx)+=occ_inc;
-            occ_grid.at<cv::Vec3f>(ty,tx+1)+=occ_inc;
-            occ_grid.at<cv::Vec3f>(ty,tx-1)+=occ_inc;
+				occ_grid.at<cv::Vec3f>(ty,tx)+=  occ_inc;
+				occ_grid.at<cv::Vec3f>(ty+1,tx)+=occ_inc;
+				occ_grid.at<cv::Vec3f>(ty-1,tx)+=occ_inc;
+				occ_grid.at<cv::Vec3f>(ty,tx+1)+=occ_inc;
+				occ_grid.at<cv::Vec3f>(ty,tx-1)+=occ_inc;
 
-            depth_res.at<cv::Vec3f>(ty,tx)=((*pc_ptr));
-       }
-       pc_rgb_ptr++;
-       pc_proj_ptr++;
-       pc_ptr++;
-      }
-   img_cum=img_cum / occ_grid;
-   img_cum.convertTo(img_res,CV_8UC3);
-   }
-
-
-   if(channels==1)
-   {
-   // assign color values to calculated image coordinates
-    cv::add(img_res,0,img_res);
-    cv::add(depth_res,0,depth_res);
-   unsigned char* pc_rgb_ptr=pc_rgb.ptr<unsigned char>(0,0);
-
-   cv::Mat occ_grid=cv::Mat::ones(sensor_size,CV_32FC1);
-   cv::Mat img_cum=cv::Mat::zeros(sensor_size,CV_32FC1);
-   cv::Mat occ_grid2=cv::Mat::ones(sensor_size,CV_32FC1);
-   for(int i=0;i<pc_proj.rows;++i)
-     {
-       cv::Vec2f txty=*pc_proj_ptr;
-       tx=(int)round(txty[0]);
-       ty=(int)round(txty[1]);
+				depth_res.at<cv::Vec3f>(ty,tx)=((*pc_ptr));
+		   }
+		   pc_rgb_ptr++;
+		   pc_proj_ptr++;
+		   pc_ptr++;
+		}
+	img_cum=img_cum / occ_grid;
+	img_cum.convertTo(img_res,CV_8UC3);
+	}
 
 
-       if (ty>1 && tx>1 && ty<sensor_size.height-1 && tx<sensor_size.width-1 && !isnan(ty) && !isnan(tx) )
-       {
-            //if((depth_map.at<cv::Vec3f>(ty,tx)[2]==0) || (depth_map.at<cv::Vec3f>(ty,tx)[2]>(*pc_ptr)[2]))
-            //{
-            img_res.at<unsigned char>(ty,tx)=(*pc_rgb_ptr);
-            occ_grid2.at<float>(ty,tx)=0.0;
-            img_cum.at<float>(ty+1,tx)+=(*pc_rgb_ptr);
-            img_cum.at<float>(ty-1,tx)+=(*pc_rgb_ptr);
-            img_cum.at<float>(ty,tx-1)+=(*pc_rgb_ptr);
-            img_cum.at<float>(ty,tx+1)+=(*pc_rgb_ptr);
-            img_cum.at<float>(ty+1,tx+1)+=(*pc_rgb_ptr);
-            img_cum.at<float>(ty-1,tx-1)+=(*pc_rgb_ptr);
-            img_cum.at<float>(ty-1,tx+1)+=(*pc_rgb_ptr);
-            img_cum.at<float>(ty+1,tx-1)+=(*pc_rgb_ptr);
+	if(channels==1)
+	{
+		// assign color values to calculated image coordinates
+		cv::add(img_res,0,img_res);
+		cv::add(depth_res,0,depth_res);
+		unsigned char* pc_rgb_ptr=pc_rgb.ptr<unsigned char>(0,0);
 
-            occ_grid.at<float>(ty,tx)+=  1;
-            occ_grid.at<float>(ty+1,tx)+=1;
-            occ_grid.at<float>(ty-1,tx)+=1;
-            occ_grid.at<float>(ty,tx+1)+=1;
-            occ_grid.at<float>(ty,tx-1)+=1;
-            occ_grid.at<float>(ty+1,tx+1)+=1;
-            occ_grid.at<float>(ty-1,tx-1)+=1;
-            occ_grid.at<float>(ty-1,tx+1)+=1;
-            occ_grid.at<float>(ty+1,tx-1)+=1;
+		cv::Mat occ_grid=cv::Mat::ones(sensor_size,CV_32FC1);
+		cv::Mat img_cum=cv::Mat::zeros(sensor_size,CV_32FC1);
+		cv::Mat occ_grid2=cv::Mat::ones(sensor_size,CV_32FC1);
+		for(int i=0;i<pc_proj.rows;++i)
+		{
+			cv::Vec2f txty=*pc_proj_ptr;
+			tx=(int)round(txty[0]);
+			ty=(int)round(txty[1]);
 
-            depth_res.at<cv::Vec3f>(ty,tx)=((*pc_ptr));
-       }
-       pc_rgb_ptr++;
-       pc_proj_ptr++;
-       pc_ptr++;
-      }
 
-   occ_grid=occ_grid;
-   img_cum=img_cum / (occ_grid.mul(occ_grid2)-1);
-   img_cum.convertTo(img_cum,CV_8UC1);
-   cv::add(img_res,img_cum,img_res);
-   }
+			if (ty>1 && tx>1 && ty<sensor_size.height-1 && tx<sensor_size.width-1 && !isnan(ty) && !isnan(tx) )
+			{
+				img_res.at<unsigned char>(ty,tx)=(*pc_rgb_ptr);
+				occ_grid2.at<float>(ty,tx)=0.0;
+				img_cum.at<float>(ty+1,tx)+=(*pc_rgb_ptr);
+				img_cum.at<float>(ty-1,tx)+=(*pc_rgb_ptr);
+				img_cum.at<float>(ty,tx-1)+=(*pc_rgb_ptr);
+				img_cum.at<float>(ty,tx+1)+=(*pc_rgb_ptr);
+				img_cum.at<float>(ty+1,tx+1)+=(*pc_rgb_ptr);
+				img_cum.at<float>(ty-1,tx-1)+=(*pc_rgb_ptr);
+				img_cum.at<float>(ty-1,tx+1)+=(*pc_rgb_ptr);
+				img_cum.at<float>(ty+1,tx-1)+=(*pc_rgb_ptr);
+
+				occ_grid.at<float>(ty,tx)+=  1;
+				occ_grid.at<float>(ty+1,tx)+=1;
+				occ_grid.at<float>(ty-1,tx)+=1;
+				occ_grid.at<float>(ty,tx+1)+=1;
+				occ_grid.at<float>(ty,tx-1)+=1;
+				occ_grid.at<float>(ty+1,tx+1)+=1;
+				occ_grid.at<float>(ty-1,tx-1)+=1;
+				occ_grid.at<float>(ty-1,tx+1)+=1;
+				occ_grid.at<float>(ty+1,tx-1)+=1;
+
+				depth_res.at<cv::Vec3f>(ty,tx)=((*pc_ptr));
+			}
+			pc_rgb_ptr++;
+			pc_proj_ptr++;
+			pc_ptr++;
+		}
+		//self-assignment, remnant from Toms code, don't know the purpose but let's save it...
+		//occ_grid=occ_grid;
+		img_cum=img_cum / (occ_grid.mul(occ_grid2)-1);
+		img_cum.convertTo(img_cum,CV_8UC1);
+		cv::add(img_res,img_cum,img_res);
+	}
 
 
 
@@ -1556,9 +1553,9 @@ bool FaceNormalizer::rotate_head(cv::Mat& img,cv::Mat& depth)
    //origin=nose+(0.1*z_new);
 
    Eigen::Affine3f T_norm;
-   std::cout<<"X-Axis:\n "<<x_new<<std::endl;
-   std::cout<<"Y-Axis:\n "<<y_new<<std::endl;
-   std::cout<<"Z-Axis:\n "<<z_new<<std::endl;
+   //std::cout<<"X-Axis:\n "<<x_new<<std::endl;
+   //std::cout<<"Y-Axis:\n "<<y_new<<std::endl;
+   //std::cout<<"Z-Axis:\n "<<z_new<<std::endl;
 
    pcl::getTransformationFromTwoUnitVectorsAndOrigin(y_new,z_new,origin,T_norm);
 
@@ -1911,7 +1908,7 @@ bool FaceNormalizer::detect_feature(cv::Mat& img,cv::Point2f& coords,FACE::FEATU
   //  sub_img=sub_img(cvRect(0,f_det_img_.nose.y,img.cols,img.rows-f_det_img_.nose.y-1));
   //  IplImage ipl_img=(IplImage)sub_img;
   //   seq=cvHaarDetectObjects(&ipl_img,mouth_cascade_,mouth_storage_,1.3,4,CV_HAAR_DO_CANNY_PRUNING,cvSize(30*scale,15*scale));
-  //   break;
+     break;
   }
   }
 
